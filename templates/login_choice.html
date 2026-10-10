@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Choose Login | Skyline Student Association{% endblock %}
+
+{% block content %}
+
+<section class="login-choice-page">
+
+    <div class="login-choice-heading">
+        <span class="eyebrow">SKYLINE STUDENT ASSOCIATION</span>
+        <h1>Welcome back.</h1>
+        <p>Choose an account type to continue to Skyline Club.</p>
+    </div>
+
+    <div class="login-choice-grid">
+
+        <a href="{{ url_for('login') }}"
+           class="login-choice-card admin-choice">
+
+            <div class="login-choice-icon">♜</div>
+
+            <span class="choice-label">
+                FOR CLUB ADMINISTRATION
+            </span>
+
+            <h2>Admin Login</h2>
+
+            <p>
+                Manage club members, events, tickets and club operations.
+            </p>
+
+            <span class="choice-action">
+                Continue to Admin Login ↗
+            </span>
+
+        </a>
+
+        <a href="{{ url_for('member_login') }}"
+           class="login-choice-card member-choice">
+
+            <div class="login-choice-icon">♧</div>
+
+            <span class="choice-label">
+                FOR CLUB MEMBERS
+            </span>
+
+            <h2>Member Login</h2>
+
+            <p>
+                Access your membership details, events and tickets.
+            </p>
+
+            <span class="choice-action">
+                Continue to Member Login ↗
+            </span>
+
+        </a>
+
+    </div>
+
+    <a class="login-back-link" href="{{ url_for('home') }}">
+        ← Back to homepage
+    </a>
+
+</section>
+
+{% endblock %}

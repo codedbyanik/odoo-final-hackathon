@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Announcements</h1>
+{% for p in posts %}
+<div class="card"><h2>{{ p.title }}</h2><p class="muted">{{ p.created_at|pretty }}</p><p style="white-space:pre-line">{{ p.body }}</p></div>
+{% else %}<p class="muted">Nothing posted yet.</p>{% endfor %}
+{% endblock %}

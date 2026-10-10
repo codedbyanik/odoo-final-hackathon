@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Members</h1>
+<form method="post" action="{{ url_for('admin_member_add') }}" class="card">
+  <h2>Add a member (sign-up table)</h2>
+  <div class="inline">
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Email</label><input name="email" type="email" required></div>
+    <div><label>Phone</label><input name="phone"></div>
+    <div><label>Tier</label><select name="tier_id">{% for t in tiers %}<option value="{{ t.id }}">{{ t.name }} ({{ t.price|money }})</option>{% endfor %}</select></div>
+    <div><label style="font-weight:400"><input type="checkbox" name="paid_cash" value="1"> Paid cash now</label></div>
+    <button type="submit">Add</button>
+  </div>
+</form>
+<form method="get" class="inline" style="margin-bottom:12px"><div><input name="q" value="{{ q }}" placeholder="Search name, email or code"></div><button type="submit">Search</button></form>
+<div class="table-wrap"><table>
+  <tr><th>Code</th><th>Name</th><th>Email</th><th>Tier</th><th>Status</th><th>Valid until</th><th></th></tr>
+  {% for m in members %}{% set s = status_of(m) %}
+  <tr><td>{{ m.code }}</td><td>{{ m.name }}</td><td>{{ m.email }}</td><td>{{ m.tier_name }}</td>
+    <td><span class="badge {{ 'ok' if s == 'active' else ('warn' if s == 'pending' else 'bad') }}">{{ s }}</span></td>
+    <td>{{ m.expires_on|pretty }}</td>
+    <td class="row">
+      {% if s != 'active' %}<form method="post" action="{{ url_for('admin_member_pay', member_id=m.id) }}"><button class="small">Mark paid (cash)</button></form>{% endif %}
+      <form method="post" action="{{ url_for('admin_member_remind', member_id=m.id) }}"><button class="small secondary">Send reminder</button></form>
+    </td></tr>
+  {% else %}<tr><td colspan="7" class="muted">No members found.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

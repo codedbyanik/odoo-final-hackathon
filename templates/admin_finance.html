@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Treasurer: where the money went</h1>
+<form method="get" class="inline card">
+  <div><label>From</label><input type="date" name="start" value="{{ start }}"></div>
+  <div><label>To</label><input type="date" name="end" value="{{ end }}"></div>
+  <div><label>Category</label><select name="category"><option value="">All</option>{% for c in categories %}<option {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  <button type="submit">Filter</button>
+  <a class="btn secondary" style="color:#1f2937" href="{{ url_for('admin_finance_csv', start=start, end=end, category=category) }}">Download CSV</a>
+</form>
+<div class="grid3">
+  <div class="card"><div class="stat pos">{{ income|money }}</div>Money in</div>
+  <div class="card"><div class="stat neg">{{ expense|money }}</div>Money out</div>
+  <div class="card"><div class="stat {{ 'pos' if income - expense >= 0 else 'neg' }}">{{ (income - expense)|money }}</div>Money left</div>
+</div>
+<div class="grid2">
+  <div class="card"><h2>In, by source</h2>
+    {% for cat, amt in breakdown.income|dictsort(by='value')|reverse %}<div class="item"><span>{{ cat|capitalize }}</span><span>{{ amt|money }}</span></div>
+    <div class="bar-track"><div class="bar-fill green" style="width:{{ (amt * 100 / income)|round }}%"></div></div>
+    {% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div>
+  <div class="card"><h2>Out, by purpose</h2>
+    {% for cat, amt in breakdown.expense|dictsort(by='value')|reverse %}<div class="item"><span>{{ cat|capitalize }}</span><span>{{ amt|money }}</span></div>
+    <div class="bar-track"><div class="bar-fill red" style="width:{{ (amt * 100 / expense)|round }}%"></div></div>
+    {% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div>
+</div>
+<form method="post" action="{{ url_for('admin_finance_add') }}" class="card"><h2>Add a manual entry</h2>
+  <div class="inline">
+    <div><label>Type</label><select name="kind"><option value="income">Income</option><option value="expense">Expense</option></select></div>
+    <div><label>Category</label><select name="category">{% for c in income_cats %}<option>{{ c }}</option>{% endfor %}{% for c in expense_cats if c not in income_cats %}<option>{{ c }}</option>{% endfor %}</select></div>
+    <div><label>Amount (₹)</label><input name="amount" type="number" step="0.01" min="0.01" required></div>
+    <div><label>Date</label><input name="date" type="date" value="{{ today }}"></div>
+    <div><label>Description</label><input name="description" required></div>
+    <button type="submit">Add</button>
+  </div>
+</form>
+<div class="table-wrap"><table>
+  <tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr>
+  {% for r in rows %}<tr><td>{{ r.date|pretty }}</td><td>{{ r.category }}</td><td>{{ r.description }}</td>
+    <td class="{{ 'pos' if r.kind == 'income' else 'neg' }}">{{ '+' if r.kind == 'income' else '-' }}{{ r.amount|money }}</td></tr>
+  {% else %}<tr><td colspan="4" class="muted">No entries match.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

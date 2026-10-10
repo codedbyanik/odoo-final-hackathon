@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Fundraisers</h1>
+<form method="post" class="card">
+  <h2>Plan a fundraiser</h2>
+  <div class="inline">
+    <div><label>Name</label><input name="name" required></div>
+    <div><label>Goal (₹)</label><input name="goal" type="number" step="0.01" min="0" value="0"></div>
+    <div><label>Deadline</label><input name="deadline" type="date"></div>
+  </div>
+  <label>Description</label><input name="description"><br><button type="submit">Create</button>
+</form>
+<div class="grid2">
+{% for f in fundraisers %}{% set s = summary[f.id] %}
+  <div class="card"><h2><a href="{{ url_for('admin_fundraiser', fundraiser_id=f.id) }}">{{ f.name }}</a></h2>
+    <p><span class="badge {{ 'ok' if s.health in ['On track', 'All tasks done'] else 'bad' }}">{{ s.health }}</span>
+    {% if s.days_left is not none %}<span class="muted">{{ s.days_left }} days left</span>{% endif %}</p>
+    <p class="muted">Tasks {{ s.done }}/{{ s.total }} done</p><div class="bar-track"><div class="bar-fill green" style="width:{{ s.task_pct }}%"></div></div>
+    {% if f.goal %}<p class="muted">Raised {{ s.raised|money }} of {{ f.goal|money }}</p><div class="bar-track"><div class="bar-fill" style="width:{{ s.goal_pct }}%"></div></div>{% endif %}
+  </div>
+{% else %}<p class="muted">No fundraisers yet.</p>{% endfor %}
+</div>
+{% endblock %}

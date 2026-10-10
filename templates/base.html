@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101b31">
+
+  <title>{% block title %}Skyline Student Association{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<header class="topbar">
+  <div class="container bar">
+
+    <a class="brand"
+       href="{{ url_for('home') }}"
+       aria-label="Skyline home">
+      <span class="brand-mark">S</span>
+      <span class="brand-copy">
+        <strong>skyline</strong>
+        <small>STUDENT ASSOCIATION</small>
+      </span>
+    </a>
+
+    <nav class="primary-nav" aria-label="Main navigation">
+      <a href="{{ url_for('events') }}">Events</a>
+      <a href="{{ url_for('announcements') }}">What's new</a>
+      <a href="{{ url_for('shop') }}">Merch store</a>
+      <a href="{{ url_for('membership') }}">Membership</a>
+    </nav>
+
+    <div class="nav-actions">
+      {% if is_admin %}
+
+        <a class="nav-link"
+           href="{{ url_for('logout') }}">
+          Log out
+        </a>
+
+      {% elif session.get('member_id') %}
+
+        <a class="nav-link"
+           href="{{ url_for('member_dashboard') }}">
+          My Account
+        </a>
+
+        <a class="nav-link"
+           href="{{ url_for('member_logout') }}">
+          Log out
+        </a>
+
+      {% else %}
+
+        <a class="nav-link"
+           href="{{ url_for('login_choice') }}">
+          Committee login
+        </a>
+
+      {% endif %}
+
+      <a class="btn btn-nav" href="{{ url_for('join') }}">
+        Join the club <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+
+  </div>
+</header>
+
+{% if is_admin %}
+<div class="admin-shell">
+  <div class="container adminbar" aria-label="Committee navigation">
+
+    <span class="admin-label">
+      <span class="admin-dot"></span>
+      Committee workspace
+    </span>
+
+    <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+    <a href="{{ url_for('admin_members') }}">Members</a>
+    <a href="{{ url_for('admin_events') }}">Events</a>
+    <a href="{{ url_for('admin_checkin_page') }}">Door check-in</a>
+    <a href="{{ url_for('admin_announcements') }}">Announcements</a>
+    <a href="{{ url_for('admin_shop') }}">Merch</a>
+    <a href="{{ url_for('admin_fundraisers') }}">Fundraisers</a>
+    <a href="{{ url_for('admin_claims') }}">Expense claims</a>
+    <a href="{{ url_for('admin_finance') }}">Finance</a>
+
+  </div>
+</div>
+{% endif %}
+
+<main class="container page-content">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">
+        <span class="flash-icon">
+          {% if category == 'error' %}!{% else %}✓{% endif %}
+        </span>
+        <span>{{ message }}</span>
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-inner">
+
+    <a class="brand footer-brand"
+       href="{{ url_for('home') }}">
+      <span class="brand-mark">S</span>
+      <span class="brand-copy">
+        <strong>skyline</strong>
+        <small>STUDENT ASSOCIATION</small>
+      </span>
+    </a>
+
+    <p>Made for campus life. Built for everyone.</p>
+
+    <span class="footer-copy">
+      © Skyline Student Association
+    </span>
+
+  </div>
+</footer>
+
+</body>
+</html>

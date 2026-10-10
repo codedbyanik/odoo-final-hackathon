@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Door check-in</h1>
+{% if not events %}<p class="muted">Create an event first.</p>{% else %}
+<div class="card">
+  <label>Event</label>
+  <select id="event" onchange="location.href='?event_id=' + this.value">
+    {% for e in events %}<option value="{{ e.id }}" {% if e.id == selected %}selected{% endif %}>{{ e.name }} · {{ e.starts_at|pretty }}</option>{% endfor %}
+  </select>
+  <p id="counts" class="muted">Checked in {{ stats.attended }} of {{ stats.sold }} paid tickets</p>
+  <label>Ticket code</label>
+  <div class="inline"><div><input id="code" autofocus autocomplete="off" placeholder="Type or scan the ticket code, then press Enter"></div><button id="go" type="button">Check in</button></div>
+  <div id="result">Waiting for a ticket</div>
+  <button id="scan" type="button" class="secondary">Scan QR with camera</button>
+  <div id="reader"></div>
+</div>
+<div class="card">
+  <h2>Is this person a member?</h2>
+  <input id="lookup" placeholder="Name, email or member code" autocomplete="off">
+  <div id="members"></div>
+</div>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+const eventSel = document.getElementById('event'), codeInput = document.getElementById('code'), box = document.getElementById('result');
+let lastCode = '', lastAt = 0;
+function show(cls, html) { box.className = cls; box.innerHTML = html; }
+async function submitCode(raw) {
+  const code = raw.trim().toUpperCase(); if (!code) return;
+  const fd = new FormData(); fd.append('code', code); fd.append('event_id', eventSel.value);
+  const r = await fetch('{{ url_for("checkin") }}', {method: 'POST', body: fd});
+  const j = await r.json();
+  const name = j.name ? '<strong>' + j.name.replace(/</g, '&lt;') + '</strong><br>' : '';
+  if (j.status === 'ok') {
+    show('ok', name + 'Welcome in!' + (j.member ? '<br>Member ✓' : '<br>Not a member'));
+    document.getElementById('counts').textContent = 'Checked in ' + j.stats.attended + ' of ' + j.stats.sold + ' paid tickets';
+  } else if (j.status === 'used') show('warn', name + j.message);
+  else show('bad', name + j.message);
+  codeInput.value = ''; codeInput.focus();
+}
+codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(codeInput.value); });
+document.getElementById('go').onclick = () => submitCode(codeInput.value);
+document.getElementById('scan').onclick = () => {
+  if (!window.Html5Qrcode) { show('warn', 'Camera scanner could not load. Type the code instead.'); return; }
+  const scanner = new Html5Qrcode('reader');
+  scanner.start({facingMode: 'environment'}, {fps: 10, qrbox: 220}, text => {
+    if (text !== lastCode || Date.now() - lastAt > 3000) { lastCode = text; lastAt = Date.now(); submitCode(text); }
+  }).catch(() => show('warn', 'Could not open the camera. Type the code instead.'));
+};
+const lookup = document.getElementById('lookup'), list = document.getElementById('members');
+lookup.addEventListener('input', async () => {
+  const r = await fetch('{{ url_for("api_member_search") }}?q=' + encodeURIComponent(lookup.value));
+  const rows = await r.json();
+  list.innerHTML = rows.map(m => '<div class="item"><span>' + m.name.replace(/</g, '&lt;') + ' <span class="muted">' + m.code + ' · ' + m.tier + '</span></span><span class="badge ' +
+    (m.status === 'active' ? 'ok' : (m.status === 'pending' ? 'warn' : 'bad')) + '">' + m.status + (m.expires_on ? ' · ' + m.expires_on : '') + '</span></div>').join('');
+});
+</script>
+{% endif %}
+{% endblock %}

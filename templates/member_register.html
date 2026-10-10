@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Member Registration | Skyline Club{% endblock %}
+
+{% block content %}
+<section class="login-page">
+    <h1>Create your member account</h1>
+    <p>Register with your email and choose a password.</p>
+
+    <form method="post" class="card" style="max-width: 460px;">
+        <label for="name">Full name</label>
+        <input id="name" name="name" required
+               value="{{ request.form.get('name', '') }}">
+
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required
+               autocomplete="email"
+               value="{{ request.form.get('email', '') }}">
+
+        <label for="phone">Phone (optional)</label>
+        <input id="phone" name="phone" type="tel"
+               value="{{ request.form.get('phone', '') }}">
+
+        <label for="tier_id">Membership tier</label>
+        <select id="tier_id" name="tier_id" required>
+            <option value="">Choose a tier</option>
+            {% for tier in tiers %}
+            <option value="{{ tier.id }}">
+                {{ tier.name }} — ₹{{ "%.2f"|format(tier.price) }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <label for="password">Create password</label>
+        <input id="password" name="password" type="password"
+               minlength="8" autocomplete="new-password" required>
+
+        <label for="confirm_password">Confirm password</label>
+        <input id="confirm_password" name="confirm_password"
+               type="password" minlength="8"
+               autocomplete="new-password" required>
+
+        <button type="submit">Create account</button>
+    </form>
+
+    <p>Already registered?
+        <a href="{{ url_for('member_login') }}">Member Login</a>
+    </p>
+</section>
+{% endblock %}

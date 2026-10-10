@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Member Login | Skyline Club{% endblock %}
+
+{% block content %}
+
+<section class="login-page">
+    <h1>Member Login</h1>
+    <p>Access your Skyline Club membership and tickets.</p>
+
+    <form method="post" class="card" style="max-width: 400px;">
+        <label for="identifier">Member ID or Email</label>
+        <input
+            type="text"
+            id="identifier"
+            name="identifier"
+            placeholder="Enter your Member ID or email"
+            autocomplete="username"
+            required
+        >
+
+        <label for="password">Password</label>
+        <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+        >
+
+        <button type="submit">Log in</button>
+    </form>
+</section>
+
+<p>New to Skyline Club?
+    <a href="{{ url_for('member_register') }}">Create an account</a>
+</p>
+{% endblock %}

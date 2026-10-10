@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Expense claims</h1>
+<div class="table-wrap"><table>
+  <tr><th>Member</th><th>For</th><th>Amount</th><th>Receipt</th><th>Status</th><th></th></tr>
+  {% for c in claims %}
+  <tr><td>{{ c.member_name }}<br><span class="muted">{{ c.code }} · {{ c.created_at|pretty }}</span></td><td>{{ c.description }}</td><td>{{ c.amount|money }}</td>
+    <td>{% if c.receipt_file %}<a href="{{ url_for('admin_receipt', claim_id=c.id) }}" target="_blank">View</a>{% else %}<span class="muted">none</span>{% endif %}</td>
+    <td><span class="badge {{ 'ok' if c.status in ['approved', 'reimbursed'] else ('warn' if c.status == 'pending' else 'bad') }}">{{ c.status }}</span></td>
+    <td class="row">
+      {% if c.status == 'pending' %}
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='approve') }}"><button class="small">Approve</button></form>
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reject') }}"><button class="small danger">Reject</button></form>
+      {% elif c.status == 'approved' %}
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reimburse') }}"><button class="small">Mark reimbursed</button></form>
+      {% endif %}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No claims yet.</td></tr>{% endfor %}
+</table></div>
+<p class="muted">Volunteers submit claims at <a href="{{ url_for('expense_new') }}">/expenses/new</a>.</p>
+{% endblock %}

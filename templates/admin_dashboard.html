@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Committee dashboard</h1>
+<div class="grid3">
+  <div class="card"><div class="stat">{{ counts.active }}</div>Active members<br><span class="muted">{{ counts.pending }} unpaid · {{ counts.expired }} expired</span></div>
+  <div class="card"><div class="stat {{ 'pos' if income - expense >= 0 else 'neg' }}">{{ (income - expense)|money }}</div>Money left<br><span class="muted">{{ income|money }} in · {{ expense|money }} out</span></div>
+  <div class="card"><div class="stat">{{ pending_orders + pending_claims }}</div>Things waiting on you<br><span class="muted">{{ pending_orders }} unpaid orders · {{ pending_claims }} expense claims · {{ overdue_tasks }} overdue tasks</span></div>
+</div>
+<div class="grid2">
+  <section class="card"><h2>Memberships ending in 30 days</h2>
+    {% for m in expiring %}<div class="item"><span>{{ m.name }} <span class="muted">{{ m.code }}</span></span><span>{{ m.expires_on|pretty }}</span></div>
+    {% else %}<p class="muted">No renewals due. Reminders go out automatically.</p>{% endfor %}
+  </section>
+  <section class="card"><h2>Upcoming events</h2>
+    {% for e in upcoming %}<div class="item"><a href="{{ url_for('admin_event', event_id=e.id) }}">{{ e.name }}</a><span class="muted">{{ e.starts_at|pretty }} · {{ e.seats_left }} left</span></div>
+    {% else %}<p class="muted">No upcoming events.</p>{% endfor %}
+  </section>
+</div>
+{% endblock %}

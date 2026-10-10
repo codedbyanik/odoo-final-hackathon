@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Announcements</h1>
+<form method="post" class="card">
+  <label>Title</label><input name="title" required>
+  <label>Message</label><textarea name="body" rows="4" required></textarea>
+  <label style="font-weight:400"><input type="checkbox" name="email_members" value="1" checked> Also email every active member</label><br>
+  <button type="submit">Post announcement</button>
+</form>
+<h2>Posted</h2>
+{% for p in posts %}<div class="card"><strong>{{ p.title }}</strong> <span class="muted">{{ p.created_at|pretty }}{% if p.emailed %} · emailed to {{ p.emailed }}{% endif %}</span><p style="white-space:pre-line">{{ p.body }}</p></div>
+{% else %}<p class="muted">Nothing posted yet.</p>{% endfor %}
+<h2>Email log</h2>
+<p class="muted">Every message the system sends is recorded here. Set SMTP_HOST to deliver them for real.</p>
+<div class="table-wrap"><table>
+  <tr><th>When</th><th>To</th><th>Subject</th><th>Type</th><th>Status</th></tr>
+  {% for o in outbox %}<tr><td>{{ o.created_at|pretty }}</td><td>{{ o.to_email }}</td><td>{{ o.subject }}</td><td>{{ o.kind }}</td><td>{{ o.status }}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">No emails yet.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

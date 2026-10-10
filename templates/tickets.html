@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Your tickets</h1>
+{% if unpaid_total > 0 %}
+<div class="card"><p><strong>Payment pending.</strong> Tickets only work at the door once paid.</p>
+  <a class="btn" href="{{ url_for('pay_tickets_route', batch=batch) }}">Pay {{ unpaid_total|money }}</a></div>
+{% endif %}
+{% for t in tickets %}
+<div class="ticket">
+  <div class="qr" data-code="{{ t.code }}"></div>
+  <div>
+    <div class="code">{{ t.code }}</div>
+    <strong>{{ t.event_name }}</strong><br>
+    <span class="muted">{{ t.starts_at|pretty }}{% if t.venue %} · {{ t.venue }}{% endif %}</span><br>
+    {{ t.name }} · {{ t.price_paid|money }}
+    {% if t.is_member %}<span class="badge info">Member price</span>{% endif %}
+    {% if t.paid %}<span class="badge ok">Paid</span>{% else %}<span class="badge warn">Unpaid</span>{% endif %}
+  </div>
+</div>
+{% endfor %}
+<p class="muted">Save this page or screenshot it. Show the QR code or read out the code at the door.</p>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+document.querySelectorAll('.qr').forEach(el => { if (window.QRCode) new QRCode(el, {text: el.dataset.code, width: 140, height: 140}); });
+</script>
+{% endblock %}

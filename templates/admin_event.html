@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{ e.name }}</h1>
+<p class="muted">{{ e.starts_at|pretty }}{% if e.venue %} · {{ e.venue }}{% endif %}</p>
+<div class="grid3">
+  <div class="card"><div class="stat">{{ s.sold }}/{{ e.capacity }}</div>Paid tickets</div>
+  <div class="card"><div class="stat">{{ s.attended }}</div>Actually showed up ({{ s.rate }}%)<br><span class="muted">{{ s.no_shows }} no-shows</span></div>
+  <div class="card"><div class="stat">{{ s.revenue|money }}</div>Ticket revenue<br><span class="muted">{{ s.members }} member tickets</span></div>
+</div>
+<p><a class="btn" href="{{ url_for('admin_checkin_page', event_id=e.id) }}">Open door check-in</a></p>
+<div class="table-wrap"><table>
+  <tr><th>Name</th><th>Email</th><th>Code</th><th>Price</th><th>Payment</th><th>Check-in</th></tr>
+  {% for t in attendees %}
+  <tr><td>{{ t.name }}</td><td>{{ t.email }}</td><td>{{ t.code }}</td><td>{{ t.price_paid|money }}{% if t.is_member %} <span class="badge info">member</span>{% endif %}</td>
+    <td>{% if t.paid %}<span class="badge ok">paid</span>{% else %}<span class="badge warn">unpaid</span>{% endif %}</td>
+    <td>{% if t.checked_in_at %}{{ t.checked_in_at|pretty }}{% else %}<span class="muted">not yet</span>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No tickets sold yet.</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

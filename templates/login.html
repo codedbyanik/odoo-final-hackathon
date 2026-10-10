@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Login | Skyline Club{% endblock %}
+
+{% block content %}
+
+<section class="login-page">
+    <h1>Admin Login</h1>
+    <p>Sign in to manage Skyline Club.</p>
+
+    <form method="post" class="card" style="max-width: 400px;">
+        <label for="username">Admin username</label>
+        <input
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+            required
+        >
+
+        <label for="password">Password</label>
+        <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            required
+        >
+
+        <button type="submit">Log in</button>
+    </form>
+</section>
+{% endblock %}

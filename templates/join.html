@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Join the club</h1>
+<form method="post" class="card" style="max-width:520px">
+  <label>Full name</label><input name="name" required>
+  <label>Email</label><input name="email" type="email" required>
+  <label>Phone (optional)</label><input name="phone">
+  <label>Membership tier</label>
+  {% for t in tiers %}
+  <label style="font-weight:400"><input type="radio" name="tier_id" value="{{ t.id }}" {% if loop.first %}checked{% endif %}> <strong>{{ t.name }}</strong> · {{ t.price|money }} per year · {{ t.discount_percent }}% off merchandise and member ticket prices</label>
+  {% endfor %}
+  <p class="muted">Memberships run until 31 July. You will pay on the next step.</p>
+  <button type="submit">Continue to payment</button>
+</form>
+{% endblock %}

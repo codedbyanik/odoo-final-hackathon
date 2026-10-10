@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Order #{{ order.id }}</h1>
+<div class="card" style="max-width:560px">
+  <p>{{ order.name }} · <span class="badge {{ 'ok' if order.status == 'paid' else ('warn' if order.status == 'pending' else 'bad') }}">{{ order.status|capitalize }}</span></p>
+  {% for i in items %}<div class="item"><span>{{ i.product_name }} ({{ i.size }}) x {{ i.qty }}</span><span>{{ (i.unit_price * i.qty)|money }}</span></div>{% endfor %}
+  {% if order.discount > 0 %}<div class="item"><span>Member discount</span><span>-{{ order.discount|money }}</span></div>{% endif %}
+  <div class="item"><strong>Total</strong><strong>{{ order.total|money }}</strong></div>
+  {% if order.status == 'pending' %}<p><a class="btn" href="{{ url_for('pay_order_route', token=order.token) }}">Pay now</a></p>
+  <p class="muted">Stock is held for you until the committee cancels unpaid orders.</p>{% endif %}
+</div>
+{% endblock %}

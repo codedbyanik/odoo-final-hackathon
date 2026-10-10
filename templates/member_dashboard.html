@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="member-dashboard">
+    <div class="dashboard-header">
+        <p class="eyebrow">SKYLINE CLUB · MEMBER PORTAL</p>
+        <h1>Welcome, {{ member.name }}</h1>
+        <p>Here's an overview of your membership.</p>
+    </div>
+
+    <div class="member-card">
+        <h2>Membership Details</h2>
+
+        <div class="member-detail">
+            <span>Member ID</span>
+            <strong>{{ member.code }}</strong>
+        </div>
+
+        <div class="member-detail">
+            <span>Email</span>
+            <strong>{{ member.email }}</strong>
+        </div>
+
+        <div class="member-detail">
+            <span>Membership</span>
+            <strong>{{ member.tier_name }}</strong>
+        </div>
+
+        <div class="member-detail">
+            <span>Payment Status</span>
+            <strong>{{ "Paid" if member.paid else "Pending" }}</strong>
+        </div>
+
+        <div class="member-detail">
+            <span>Membership Expires</span>
+            <strong>{{ member.expires_on or "Not set" }}</strong>
+        </div>
+    </div>
+
+    <a class="logout-button" href="{{ url_for('member_logout') }}">
+        Log out
+    </a>
+</section>
+{% endblock %}
