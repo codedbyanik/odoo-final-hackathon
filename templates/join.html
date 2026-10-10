@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Join the club</h1>
 <form method="post" class="card" style="max-width:520px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>Full name</label><input name="name" required>
   <label>Email</label><input name="email" type="email" required>
   <label>Phone (optional)</label><input name="phone">

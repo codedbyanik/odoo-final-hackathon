@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Members</h1>
 <form method="post" action="{{ url_for('admin_member_add') }}" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h2>Add a member (sign-up table)</h2>
   <div class="inline">
     <div><label>Name</label><input name="name" required></div>
@@ -20,8 +21,10 @@
     <td><span class="badge {{ 'ok' if s == 'active' else ('warn' if s == 'pending' else 'bad') }}">{{ s }}</span></td>
     <td>{{ m.expires_on|pretty }}</td>
     <td class="row">
-      {% if s != 'active' %}<form method="post" action="{{ url_for('admin_member_pay', member_id=m.id) }}"><button class="small">Mark paid (cash)</button></form>{% endif %}
-      <form method="post" action="{{ url_for('admin_member_remind', member_id=m.id) }}"><button class="small secondary">Send reminder</button></form>
+      {% if s != 'active' %}<form method="post" action="{{ url_for('admin_member_pay', member_id=m.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small">Mark paid (cash)</button></form>{% endif %}
+      <form method="post" action="{{ url_for('admin_member_remind', member_id=m.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small secondary">Send reminder</button></form>
     </td></tr>
   {% else %}<tr><td colspan="7" class="muted">No members found.</td></tr>{% endfor %}
 </table></div>

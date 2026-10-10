@@ -6,11 +6,16 @@ import smtplib
 import sqlite3
 import sys
 import uuid
+import requests
+import hmac
+from pathlib import Path
+from dotenv import load_dotenv
+from flask import url_for
 from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
+from flask_wtf.csrf import CSRFProtect
 
-from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -26,6 +31,72 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = Flask(__name__)
 
+
+load_dotenv()
+
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+def send_order_confirmation_email(name, email, token):
+    api_key = os.getenv("BREVO_API_KEY")
+    sender_email = os.getenv("BREVO_SENDER_EMAIL")
+    sender_name = os.getenv("BREVO_SENDER_NAME", "skylineclub")
+    base_url = os.getenv(
+        "BASE_URL", "http://127.0.0.1:5000"
+    ).rstrip("/")
+
+    if not api_key or not sender_email:
+        app.logger.error("Brevo configuration is missing.")
+        return False
+
+    tracking_path = url_for("order_page", token=token)
+    tracking_url = f"{base_url}{tracking_path}"
+
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": sender_email
+        },
+        "to": [{"email": email, "name": name}],
+        "subject": "Your Skyline Club order confirmation",
+        "htmlContent": f"""
+            <h2>Thank you for your order, {name}!</h2>
+            <p>Your order has been placed successfully.</p>
+            <p>
+                <a href="{tracking_url}">Track Your Order</a>
+            </p>
+        """,
+        "textContent": (
+            f"Your Skyline Club order has been placed. "
+            f"Track it here: {tracking_url}"
+        )
+    }
+
+    try:
+        response = requests.post(
+            BREVO_API_URL,
+            headers={
+                "accept": "application/json",
+                "api-key": api_key,
+                "content-type": "application/json"
+            },
+            json=payload,
+            timeout=15
+        )
+
+        if response.status_code in (200, 201, 202):
+            return True
+
+        app.logger.error(
+            "Brevo returned status %s", response.status_code
+        )
+        return False
+
+    except requests.RequestException:
+        app.logger.exception("Failed to send order email.")
+        return False
+
+
 PRODUCT_UPLOAD_FOLDER = os.path.join(
     app.root_path, "static", "uploads", "products"
 )
@@ -33,8 +104,27 @@ os.makedirs(PRODUCT_UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_PRODUCT_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-only-change-me')
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+
+app.secret_key = os.environ.get('SECRET_KEY')
+
+if not app.secret_key:
+    raise RuntimeError(
+        "SECRET_KEY is missing. Add a strong SECRET_KEY to your .env file."
+    )
+
+app.config.update(
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('COOKIE_SECURE', '0') == '1',
+)
+
+csrf = CSRFProtect(app)
+@app.context_processor
+def inject_csrf_token():
+    from flask_wtf.csrf import generate_csrf
+    return {"csrf_token": generate_csrf}
+
 app.teardown_appcontext(db.close_db)
 ADMIN_USERNAME = os.environ.get('CLUB_ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('CLUB_ADMIN_PASSWORD')
@@ -104,6 +194,38 @@ def admin_required(view):
             return redirect(url_for('login', next=request.full_path.rstrip('?')))
         return view(*args, **kwargs)
     return wrapper
+
+
+def staff_required(*allowed_roles):
+    """Require an authenticated, active staff account with an allowed role."""
+    def decorator(view):
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            if session.get('admin'):
+                return view(*args, **kwargs)
+
+            staff_id = session.get('staff_id')
+            if not staff_id:
+                return redirect(url_for('login_choice'))
+
+            staff = db.query(
+                'SELECT id, role, active FROM committee_users WHERE id = ?',
+                (staff_id,),
+                one=True
+            )
+
+            if not staff or not staff['active']:
+                session.clear()
+                flash('Your staff account is inactive or unavailable.', 'error')
+                return redirect(url_for('login_choice'))
+
+            if staff['role'] not in allowed_roles:
+                abort(403)
+
+            return view(*args, **kwargs)
+        return wrapper
+    return decorator
+
 
 
 def to_float(value, default=0.0):
@@ -581,12 +703,13 @@ def shop_order():
     token, error = create_shop_order(
         name, email, phone, address, city, pincode, wanted
     )
-
     if error:
-        flash(error, 'error')
-        return redirect(url_for('shop'))
+        flash(error, "error")
+        return redirect(url_for("shop"))
 
-    return redirect(url_for('order_page', token=token))
+    send_order_confirmation_email(name, email, token)
+
+    return redirect(url_for("order_page", token=token))
 
 
 def load_order(token):
@@ -661,11 +784,8 @@ def login():
 
         if (
             ADMIN_PASSWORD
-            and username == ADMIN_USERNAME
-            and check_password_hash(
-                generate_password_hash(ADMIN_PASSWORD),
-                password
-            )
+            and hmac.compare_digest(username, ADMIN_USERNAME)
+            and hmac.compare_digest(password, ADMIN_PASSWORD)         
         ):
             session.clear()
             session['admin'] = True
@@ -681,10 +801,10 @@ def login():
     return render_template('login.html')
 
 
-@app.get('/logout')
+@app.post('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
 
 
 # ---------------------------------------------------------------------------
@@ -890,6 +1010,42 @@ def admin_shop():
     return render_template('admin_shop.html', products=query('SELECT * FROM products ORDER BY id'),
                            variants=variants, orders=orders, order_items=order_items)
 
+
+
+@app.post('/admin/shop/order/<int:order_id>/delivery-status')
+@admin_required
+def update_delivery_status(order_id):
+    allowed_statuses = [
+        'Order Placed',
+        'Processing',
+        'Shipped',
+        'Delivered',
+        'Cancelled'
+    ]
+
+    new_status = request.form.get('delivery_status', '').strip()
+
+    if new_status not in allowed_statuses:
+        flash('Invalid delivery status.', 'error')
+        return redirect(url_for('admin_shop'))
+
+    order = query(
+        'SELECT id FROM orders WHERE id = ?',
+        (order_id,),
+        one=True
+    )
+
+    if not order:
+        flash('Order not found.', 'error')
+        return redirect(url_for('admin_shop'))
+
+    execute(
+        'UPDATE orders SET delivery_status = ? WHERE id = ?',
+        (new_status, order_id)
+    )
+
+    flash(f'Order #{order_id} delivery status updated to {new_status}.')
+    return redirect(url_for('admin_shop'))
 
 
 @app.post('/admin/shop/product')
@@ -1143,17 +1299,40 @@ def admin_finance_csv():
     return Response(out.getvalue(), mimetype='text/csv',
                     headers={'Content-Disposition': 'attachment; filename=skyline-ledger.csv'})
 
+
 @app.cli.command('create-committee-user')
 def create_committee_user():
     import getpass
 
-    email = input('Committee email: ').strip()
-    role = input('Role (admin/committee): ').strip().lower()
-    if role not in ('admin', 'committee'):
+    email = input('Staff email: ').strip().lower()
+
+    roles = {
+        'admin',
+        'treasurer',
+        'event_manager',
+        'checkin_staff',
+        'delivery_staff'
+    }
+
+    print('Available roles:')
+    print('admin')
+    print('treasurer')
+    print('event_manager')
+    print('checkin_staff')
+    print('delivery_staff')
+
+    role = input('Enter role: ').strip().lower()
+
+    if role not in roles:
         print('Invalid role.')
         return
 
-    password = getpass.getpass('Password: ')
+    if not email or '@' not in email:
+        print('Enter a valid email address.')
+        return
+
+    password = getpass.getpass('Password (minimum 8 characters): ')
+
     if len(password) < 8:
         print('Password must be at least 8 characters.')
         return
@@ -1163,18 +1342,87 @@ def create_committee_user():
         (email,),
         one=True
     )
+
     if existing:
         print('That email already has an account.')
         return
 
     db.execute(
         """
-        INSERT INTO committee_users (email, password_hash, role)
-        VALUES (?, ?, ?)
+        INSERT INTO committee_users (email, password_hash, role, active)
+        VALUES (?, ?, ?, 1)
         """,
         (email, generate_password_hash(password), role)
     )
-    print('Committee account created.')
+
+    print(f'Staff account created successfully with role: {role}')
+
+
+@app.cli.command('import-staff-csv')
+def import_staff_csv():
+    csv_path = Path(__file__).resolve().parent / 'staff_accounts.csv'
+
+    if not csv_path.exists():
+        print('Error: staff_accounts.csv not found.')
+        return
+
+    allowed_roles = {
+        'treasurer',
+        'event_manager',
+        'checkin_staff',
+        'delivery_staff'
+    }
+
+    created = 0
+
+    with open(csv_path, newline='', encoding='utf-8-sig') as file:
+        reader = csv.DictReader(file)
+
+        required = {'email', 'password', 'role'}
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            print('CSV must contain email,password,role columns.')
+            return
+
+        for row in reader:
+            email = (row.get('email') or '').strip().lower()
+            password = row.get('password') or ''
+            role = (row.get('role') or '').strip().lower()
+
+            if not email or '@' not in email:
+                print(f'Skipped invalid email: {email}')
+                continue
+
+            if len(password) < 8:
+                print(f'Skipped {email}: password must be at least 8 characters.')
+                continue
+
+            if role not in allowed_roles:
+                print(f'Skipped {email}: invalid role.')
+                continue
+
+            existing = db.query(
+                'SELECT id FROM committee_users WHERE LOWER(email) = LOWER(?)',
+                (email,),
+                one=True
+            )
+
+            if existing:
+                print(f'Skipped {email}: account already exists.')
+                continue
+
+            db.execute(
+                '''
+                INSERT INTO committee_users
+                    (email, password_hash, role, active)
+                VALUES (?, ?, ?, 1)
+                ''',
+                (email, generate_password_hash(password), role)
+            )
+
+            created += 1
+            print(f'Created {email} ({role})')
+
+    print(f'Import complete. Created {created} staff account(s).')
 
 @app.route('/member-login', methods=['GET', 'POST'])
 def member_login():
@@ -1256,6 +1504,50 @@ def member_register():
 def login_choice():
     return render_template('login_choice.html')
 
+@app.route('/staff-login', methods=['GET', 'POST'])
+def staff_login():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
+        staff = db.query(
+            '''
+            SELECT id, email, password_hash, role, active
+            FROM committee_users
+            WHERE LOWER(email) = LOWER(?)
+            ''',
+            (email,),
+            one=True
+        )
+
+        if (
+            not staff
+            or not staff['active']
+            or not check_password_hash(staff['password_hash'], password)
+        ):
+            flash('Invalid email or password, or account inactive.', 'error')
+            return render_template('staff_login.html')
+
+        session.clear()
+        session['staff_id'] = staff['id']
+        session['staff_role'] = staff['role']
+
+        flash('Staff login successful.', 'success')
+
+        return redirect(url_for('staff_dashboard'))
+
+    return render_template('staff_login.html')
+
+@app.route('/staff-dashboard')
+def staff_dashboard():
+    if not session.get('staff_id'):
+        return redirect(url_for('staff_login'))
+
+    return render_template(
+        'staff_dashboard.html',
+        role=session.get('staff_role')
+    )
+
 
 @app.route('/member-dashboard')
 def member_dashboard():
@@ -1283,22 +1575,11 @@ def member_dashboard():
     return render_template('member_dashboard.html', member=member)
 
 
-@app.route('/member-logout')
+@app.post('/member-logout')
 def member_logout():
     session.pop('member_id', None)
     flash('You have been logged out.', 'success')
-    return redirect(url_for('member_login'))
-
-
-from functools import wraps
-
-def admin_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get('admin'):
-            return redirect(url_for('login', next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
+    return redirect(url_for('home'))
 
 
 

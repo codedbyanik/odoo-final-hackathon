@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Fundraisers</h1>
 <form method="post" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h2>Plan a fundraiser</h2>
   <div class="inline">
     <div><label>Name</label><input name="name" required></div>

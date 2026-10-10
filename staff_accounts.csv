@@ -1,0 +1,5 @@
+email,password,role
+treasurer@skyline.com,DemoTreasurer123,treasurer
+events@skyline.com,DemoEvents123,event_manager
+checkin@skyline.com,DemoCheckin123,checkin_staff
+delivery@skyline.com,DemoDelivery123,delivery_staff

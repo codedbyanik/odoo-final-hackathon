@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Announcements</h1>
 <form method="post" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>Title</label><input name="title" required>
   <label>Message</label><textarea name="body" rows="4" required></textarea>
   <label style="font-weight:400"><input type="checkbox" name="email_members" value="1" checked> Also email every active member</label><br>

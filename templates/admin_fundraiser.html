@@ -14,20 +14,25 @@
   {% for t in columns[status] %}
     <div class="task {% if status != 'done' and t.due_date and t.due_date < today %}late{% endif %}">
       <strong>{{ t.title }}</strong><br><span class="muted">{{ t.assignee or 'Unassigned' }}{% if t.due_date %} · due {{ t.due_date|pretty }}{% endif %}</span><br>
-      {% if status != 'todo' %}<form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='prev') }}"><button class="small secondary">←</button></form>{% endif %}
-      {% if status != 'done' %}<form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='next') }}"><button class="small">→</button></form>{% endif %}
-      <form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='delete') }}"><button class="small danger">Delete</button></form>
+      {% if status != 'todo' %}<form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='prev') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small secondary">←</button></form>{% endif %}
+      {% if status != 'done' %}<form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='next') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small">→</button></form>{% endif %}
+      <form method="post" action="{{ url_for('admin_task_move', task_id=t.id, direction='delete') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small danger">Delete</button></form>
     </div>
   {% endfor %}
   </div>
 {% endfor %}
 </div>
 <div class="grid2" style="margin-top:16px">
-  <form method="post" action="{{ url_for('admin_task_add', fundraiser_id=f.id) }}" class="card"><h2>Add a task</h2>
+  <form method="post" action="{{ url_for('admin_task_add', fundraiser_id=f.id) }}" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h2>Add a task</h2>
     <label>Task</label><input name="title" required>
     <label>Assigned to</label><input name="assignee" list="people"><datalist id="people">{% for m in members %}<option value="{{ m.name }}">{% endfor %}</datalist>
     <label>Due date</label><input name="due_date" type="date"><br><button type="submit">Add task</button></form>
-  <form method="post" action="{{ url_for('admin_fundraiser_raised', fundraiser_id=f.id) }}" class="card"><h2>Record money raised</h2>
+  <form method="post" action="{{ url_for('admin_fundraiser_raised', fundraiser_id=f.id) }}" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h2>Record money raised</h2>
     <label>Amount (₹)</label><input name="amount" type="number" step="0.01" min="0.01" required>
     <label>Note</label><input name="note" placeholder="Cash from the table"><br><button type="submit">Add to ledger</button></form>
 </div>

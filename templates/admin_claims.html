@@ -9,10 +9,13 @@
     <td><span class="badge {{ 'ok' if c.status in ['approved', 'reimbursed'] else ('warn' if c.status == 'pending' else 'bad') }}">{{ c.status }}</span></td>
     <td class="row">
       {% if c.status == 'pending' %}
-        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='approve') }}"><button class="small">Approve</button></form>
-        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reject') }}"><button class="small danger">Reject</button></form>
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='approve') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small">Approve</button></form>
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reject') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small danger">Reject</button></form>
       {% elif c.status == 'approved' %}
-        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reimburse') }}"><button class="small">Mark reimbursed</button></form>
+        <form method="post" action="{{ url_for('admin_claim_action', claim_id=c.id, action='reimburse') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small">Mark reimbursed</button></form>
       {% endif %}</td></tr>
   {% else %}<tr><td colspan="6" class="muted">No claims yet.</td></tr>{% endfor %}
 </table></div>

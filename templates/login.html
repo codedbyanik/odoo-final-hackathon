@@ -9,6 +9,7 @@
     <p>Sign in to manage Skyline Club.</p>
 
     <form method="post" class="card" style="max-width: 400px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="username">Admin username</label>
         <input
             type="text"

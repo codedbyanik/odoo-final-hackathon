@@ -1,19 +1,189 @@
+
 {% extends 'base.html' %}
 {% block content %}
+
 <h1>Committee dashboard</h1>
+
+<!-- Existing summary cards -->
 <div class="grid3">
-  <div class="card"><div class="stat">{{ counts.active }}</div>Active members<br><span class="muted">{{ counts.pending }} unpaid · {{ counts.expired }} expired</span></div>
-  <div class="card"><div class="stat {{ 'pos' if income - expense >= 0 else 'neg' }}">{{ (income - expense)|money }}</div>Money left<br><span class="muted">{{ income|money }} in · {{ expense|money }} out</span></div>
-  <div class="card"><div class="stat">{{ pending_orders + pending_claims }}</div>Things waiting on you<br><span class="muted">{{ pending_orders }} unpaid orders · {{ pending_claims }} expense claims · {{ overdue_tasks }} overdue tasks</span></div>
+  <div class="card">
+    <div class="stat">{{ counts.active }}</div>
+    Active members
+    <br>
+    <span class="muted">
+      {{ counts.pending }} unpaid · {{ counts.expired }} expired
+    </span>
+  </div>
+
+  <div class="card">
+    <div class="stat {{ 'pos' if income - expense >= 0 else 'neg' }}">
+      {{ (income - expense)|money }}
+    </div>
+    Money left
+    <br>
+    <span class="muted">
+      {{ income|money }} in · {{ expense|money }} out
+    </span>
+  </div>
+
+  <div class="card">
+    <div class="stat">{{ pending_orders + pending_claims }}</div>
+    Things waiting on you
+    <br>
+    <span class="muted">
+      {{ pending_orders }} unpaid orders ·
+      {{ pending_claims }} expense claims ·
+      {{ overdue_tasks }} overdue tasks
+    </span>
+  </div>
 </div>
+
+<!-- NEW: Interactive charts -->
 <div class="grid2">
-  <section class="card"><h2>Memberships ending in 30 days</h2>
-    {% for m in expiring %}<div class="item"><span>{{ m.name }} <span class="muted">{{ m.code }}</span></span><span>{{ m.expires_on|pretty }}</span></div>
-    {% else %}<p class="muted">No renewals due. Reminders go out automatically.</p>{% endfor %}
+  <section class="card">
+    <h2>Financial overview</h2>
+    <p class="muted">Income compared with expenses</p>
+    <div class="chart-container">
+      <canvas id="financeChart"
+              role="img"
+              aria-label="Bar chart comparing income and expenses">
+      </canvas>
+    </div>
   </section>
-  <section class="card"><h2>Upcoming events</h2>
-    {% for e in upcoming %}<div class="item"><a href="{{ url_for('admin_event', event_id=e.id) }}">{{ e.name }}</a><span class="muted">{{ e.starts_at|pretty }} · {{ e.seats_left }} left</span></div>
-    {% else %}<p class="muted">No upcoming events.</p>{% endfor %}
+
+  <section class="card">
+    <h2>Membership overview</h2>
+    <p class="muted">Current membership status</p>
+    <div class="chart-container">
+      <canvas id="membershipChart"
+              role="img"
+              aria-label="Doughnut chart of membership statuses">
+      </canvas>
+    </div>
   </section>
 </div>
+
+<!-- Existing membership and event sections -->
+<div class="grid2">
+  <section class="card">
+    <h2>Memberships ending in 30 days</h2>
+
+    {% for m in expiring %}
+      <div class="item">
+        <span>
+          {{ m.name }}
+          <span class="muted">{{ m.code }}</span>
+        </span>
+        <span>{{ m.expires_on|pretty }}</span>
+      </div>
+    {% else %}
+      <p class="muted">
+        No renewals due. Reminders go out automatically.
+      </p>
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Upcoming events</h2>
+
+    {% for e in upcoming %}
+      <div class="item">
+        <a href="{{ url_for('admin_event', event_id=e.id) }}">
+          {{ e.name }}
+        </a>
+        <span class="muted">
+          {{ e.starts_at|pretty }} · {{ e.seats_left }} left
+        </span>
+      </div>
+    {% else %}
+      <p class="muted">No upcoming events.</p>
+    {% endfor %}
+  </section>
+</div>
+
+<!-- Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // Financial chart
+  const financeCanvas = document.getElementById("financeChart");
+
+  if (financeCanvas && typeof Chart !== "undefined") {
+    new Chart(financeCanvas, {
+      type: "bar",
+      data: {
+        labels: ["Income", "Expenses", "Money left"],
+        datasets: [{
+          label: "Amount (₹)",
+          data: [
+            {{ income|default(0)|tojson }},
+            {{ expense|default(0)|tojson }},
+            {{ (income - expense)|default(0)|tojson }}
+          ],
+          backgroundColor: ["#6478f9", "#cbd5e1", "#36b794"],
+          hoverBackgroundColor: ["#5267eb", "#b5c3d5", "#269f7e"],
+          borderRadius: 7,
+          borderSkipped: false,
+          barThickness: 24,
+          maxBarThickness: 28
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) {
+                return "₹" + value.toLocaleString("en-IN");
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Membership chart
+  const membershipCanvas =
+    document.getElementById("membershipChart");
+
+  if (membershipCanvas && typeof Chart !== "undefined") {
+    new Chart(membershipCanvas, {
+      type: "doughnut",
+      data: {
+        labels: ["Active", "Pending", "Expired"],
+        datasets: [{
+          data: [
+            {{ counts.active|default(0)|tojson }},
+            {{ counts.pending|default(0)|tojson }},
+            {{ counts.expired|default(0)|tojson }}
+          ],
+          backgroundColor: [
+            "#16a34a",
+            "#f59e0b",
+            "#dc2626"
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "bottom"
+          }
+        }
+      }
+    });
+  }
+});
+</script>
+
 {% endblock %}

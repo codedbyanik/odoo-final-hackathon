@@ -4,7 +4,8 @@
 <div class="card" style="max-width:520px">
   {% for line in lines %}<p style="margin:.2em 0">{{ line }}</p>{% endfor %}
   <p class="stat">{{ amount|money }}</p>
-  <form method="post" action="{{ action }}"><button type="submit">Pay now (demo)</button> <a href="{{ back }}">Cancel</a></form>
+  <form method="post" action="{{ action }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Pay now (demo)</button> <a href="{{ back }}">Cancel</a></form>
   <p class="muted">Demo payment: no money moves. Replace this step with Razorpay or UPI in production.</p>
 </div>
 {% endblock %}

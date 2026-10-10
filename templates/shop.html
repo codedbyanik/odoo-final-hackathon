@@ -8,40 +8,61 @@
   Active members get their tier discount automatically when you order with your member email.
 </p>
 
-<form method="post" action="{{ url_for('shop_order') }}">
+<form method="post" action="{{ url_for('shop_order') }}" id="shop-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-  <!-- Merchandise products -->
   {% for p in products %}
-    <div class="card">
-
+    <div class="card shop-product">
       {% if p.image_filename %}
         <img
-            src="{{ url_for('static', filename='uploads/products/' ~ p.image_filename) }}"
-            alt="{{ p.name }}"
-            style="width:100%; max-width:1000px; max-height:1000px;
-                   object-fit:contain; display:block; margin-bottom:16px;
-                   border-radius:12px;"
+          src="{{ url_for('static', filename='uploads/products/' ~ p.image_filename) }}"
+          alt="{{ p.name }}"
+          style="width:100%; max-width:1000px; max-height:1000px;
+                 object-fit:contain; display:block; margin-bottom:16px;
+                 border-radius:12px;"
         >
       {% endif %}
 
       <h2>{{ p.name }} · {{ p.price|money }}</h2>
-
       <p class="muted">{{ p.description }}</p>
 
       <div class="row">
         {% for v in variants.get(p.id, []) %}
-          <div style="min-width:90px">
+          <div style="min-width:110px">
             <label for="qty-{{ v.id }}">{{ v.size }}</label>
 
             {% if v.stock > 0 %}
-              <input
+              <div class="quantity-control">
+                <button
+                  type="button"
+                  class="qty-btn"
+                  data-target="qty-{{ v.id }}"
+                  data-step="-1"
+                  aria-label="Decrease {{ p.name }} {{ v.size }} quantity"
+                >−</button>
+
+                <input
                   id="qty-{{ v.id }}"
+                  class="shop-quantity"
                   type="number"
                   name="qty_{{ v.id }}"
                   min="0"
                   max="{{ [v.stock, 10]|min }}"
                   value="0"
-              >
+                  data-price="{{ p.price }}"
+                  data-product="{{ p.name }}"
+                  data-size="{{ v.size }}"
+                >
+
+                <button
+                  type="button"
+                  class="qty-btn"
+                  data-target="qty-{{ v.id }}"
+                  data-step="1"
+                  aria-label="Increase {{ p.name }} {{ v.size }} quantity"
+                >+</button>
+              </div>
+
               <span class="muted">{{ v.stock }} left</span>
             {% else %}
               <span class="badge bad">Sold out</span>
@@ -49,95 +70,80 @@
           </div>
         {% endfor %}
       </div>
-
     </div>
   {% else %}
     <p class="muted">No products yet.</p>
   {% endfor %}
 
-  <!-- Customer and delivery details -->
   {% if products %}
-    <div class="card" style="max-width:520px">
+    <div class="card" id="order-summary" aria-live="polite">
+      <h2>Your order summary</h2>
+      <p id="cart-empty" class="muted">Choose products to start your order.</p>
 
+      <div id="cart-items"></div>
+
+      <div class="row">
+        <strong>Items selected</strong>
+        <strong id="cart-count">0</strong>
+      </div>
+
+      <div class="row">
+        <strong>Estimated subtotal</strong>
+        <strong id="cart-total">₹0.00</strong>
+      </div>
+
+      <p class="muted">
+        Estimate before any eligible member discount. Final prices are
+        calculated by the server when your order is placed.
+      </p>
+    </div>
+
+    <div class="card" style="max-width:520px">
       <h2>Your details</h2>
       <p class="muted">
         Enter your contact and delivery details so we can deliver your order.
       </p>
 
       <label for="customer-name">Full name</label>
-      <input
-          id="customer-name"
-          name="name"
-          type="text"
-          autocomplete="name"
-          placeholder="Enter your full name"
-          required
-      >
+      <input id="customer-name" name="name" type="text"
+             autocomplete="name" placeholder="Enter your full name" required>
 
       <label for="customer-email">Email address</label>
-      <input
-          id="customer-email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          placeholder="Enter your email"
-          required
-      >
+      <input id="customer-email" name="email" type="email"
+             autocomplete="email" placeholder="Enter your email" required>
 
       <label for="customer-phone">Phone number</label>
-      <input
-          id="customer-phone"
-          name="phone"
-          type="tel"
-          inputmode="numeric"
-          autocomplete="tel"
-          pattern="[0-9]{10,15}"
-          minlength="10"
-          maxlength="15"
-          placeholder="Enter contact number"
-          required
-      >
+      <input id="customer-phone" name="phone" type="tel"
+             inputmode="numeric" autocomplete="tel"
+             pattern="[0-9]{10,15}" minlength="10" maxlength="15"
+             placeholder="Enter contact number" required>
 
       <label for="customer-address">Complete delivery address</label>
-      <textarea
-          id="customer-address"
-          name="address"
-          rows="3"
-          autocomplete="street-address"
-          placeholder="House/flat number, street, area, landmark"
-          required
-      ></textarea>
+      <textarea id="customer-address" name="address" rows="3"
+                autocomplete="street-address"
+                placeholder="House/flat number, street, area, landmark"
+                required></textarea>
 
       <label for="customer-city">City</label>
-      <input
-          id="customer-city"
-          name="city"
-          type="text"
-          autocomplete="address-level2"
-          placeholder="Enter your city"
-          required
-      >
+      <input id="customer-city" name="city" type="text"
+             autocomplete="address-level2"
+             placeholder="Enter your city" required>
 
       <label for="customer-pincode">PIN code</label>
-      <input
-          id="customer-pincode"
-          name="pincode"
-          type="text"
-          inputmode="numeric"
-          autocomplete="postal-code"
-          pattern="[0-9]{6}"
-          minlength="6"
-          maxlength="6"
-          placeholder="Enter 6-digit PIN code"
-          required
-      >
+      <input id="customer-pincode" name="pincode" type="text"
+             inputmode="numeric" autocomplete="postal-code"
+             pattern="[0-9]{6}" minlength="6" maxlength="6"
+             placeholder="Enter 6-digit PIN code" required>
 
       <br>
-      <button type="submit">Place order</button>
-
+      <button type="submit" id="place-order-btn" disabled>
+        Place order
+      </button>
+      <p id="cart-warning" class="muted" role="status">
+        Select at least one item to continue.
+      </p>
     </div>
   {% endif %}
-
 </form>
 
 {% endblock %}

@@ -9,6 +9,7 @@
       action="{{ url_for('admin_product_add') }}"
       class="card"
       enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <h2>Add a product</h2>
 
@@ -34,33 +35,22 @@
   <label for="product-description">Description</label>
   <input id="product-description" name="description">
 
-  <!-- Product image upload -->
   <label for="product-image">Product image</label>
-  <input
-      type="file"
-      id="product-image"
-      name="image"
-      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-  >
+  <input type="file" id="product-image" name="image"
+         accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
 
-  <!-- Image preview -->
   <div style="margin:12px 0;">
-    <img
-        id="product-image-preview"
-        alt="Product image preview"
-        style="display:none; max-width:220px; max-height:220px;
-               width:auto; height:auto; object-fit:contain;
-               border-radius:12px;"
-    >
+    <img id="product-image-preview" alt="Product image preview"
+         style="display:none;max-width:220px;max-height:220px;
+                width:auto;height:auto;object-fit:contain;border-radius:12px;">
   </div>
 
   <button type="submit">Add product</button>
 </form>
 
-<!-- Existing products and stock management -->
+<!-- Products and stock -->
 {% for p in products %}
 <div class="card">
-
   <h2>
     {{ p.name }} · {{ p.price|money }}
     {% if not p.active %}
@@ -69,48 +59,36 @@
   </h2>
 
   {% if p.image_filename %}
-    <img
-        src="{{ url_for('static', filename='uploads/products/' ~ p.image_filename) }}"
-        alt="{{ p.name }}"
-        style="display:block; max-width:220px; max-height:220px;
-               width:auto; height:auto; object-fit:contain;
-               margin:12px 0; border-radius:12px;"
-    >
+    <img src="{{ url_for('static', filename='uploads/products/' ~ p.image_filename) }}"
+         alt="{{ p.name }}"
+         style="display:block;max-width:220px;max-height:220px;
+                width:auto;height:auto;object-fit:contain;
+                margin:12px 0;border-radius:12px;">
   {% endif %}
 
   <div class="row">
     {% for v in variants.get(p.id, []) %}
-      <form
-          method="post"
-          action="{{ url_for('admin_variant_stock', variant_id=v.id) }}"
-          class="inline"
-          style="min-width:150px">
-
+      <form method="post"
+            action="{{ url_for('admin_variant_stock', variant_id=v.id) }}"
+            class="inline" style="min-width:150px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div>
           <label for="stock-{{ v.id }}">{{ v.size }} stock</label>
-          <input
-              id="stock-{{ v.id }}"
-              name="stock"
-              type="number"
-              min="0"
-              value="{{ v.stock }}"
-          >
+          <input id="stock-{{ v.id }}" name="stock"
+                 type="number" min="0" value="{{ v.stock }}">
         </div>
-
         <button class="small">Save</button>
       </form>
     {% endfor %}
   </div>
 
-  <form
-      method="post"
-      action="{{ url_for('admin_product_toggle', product_id=p.id) }}">
-
+  <form method="post"
+        action="{{ url_for('admin_product_toggle', product_id=p.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button class="small secondary">
       {{ 'Hide from shop' if p.active else 'Show in shop' }}
     </button>
   </form>
-
 </div>
 {% else %}
 <p class="muted">No products have been added yet.</p>
@@ -126,7 +104,8 @@
       <th>Customer</th>
       <th>Items</th>
       <th>Total</th>
-      <th>Status</th>
+      <th>Payment</th>
+      <th>Delivery status</th>
       <th>Actions</th>
     </tr>
 
@@ -137,6 +116,12 @@
       <td>
         {{ o.name }}<br>
         <span class="muted">{{ o.email }}</span>
+        {% if o.phone %}
+          <br><span class="muted">{{ o.phone }}</span>
+        {% endif %}
+        {% if o.address %}
+          <br><span class="muted">{{ o.address }}, {{ o.city }} {{ o.pincode }}</span>
+        {% endif %}
       </td>
 
       <td>
@@ -149,26 +134,44 @@
 
       <td>
         <span class="badge {{ 'ok' if o.status == 'paid' else ('warn' if o.status == 'pending' else 'bad') }}">
-          {{ o.status }}
+          {{ o.status|capitalize }}
         </span>
+      </td>
+
+      <td>
+        <form method="post"
+              action="{{ url_for('update_delivery_status', order_id=o.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <select name="delivery_status" required>
+            {% for s in ['Order Placed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] %}
+              <option value="{{ s }}"
+                      {% if (o.delivery_status or 'Order Placed') == s %}selected{% endif %}>
+                {{ s }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <button class="small" type="submit" style="margin-top:6px;">
+            Save status
+          </button>
+        </form>
       </td>
 
       <td>
         {% if o.status == 'pending' %}
         <div class="row">
-
-          <form
-              method="post"
-              action="{{ url_for('admin_order_action', order_id=o.id, action='paid') }}">
+          <form method="post"
+                action="{{ url_for('admin_order_action', order_id=o.id, action='paid') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="small">Mark paid</button>
           </form>
 
-          <form
-              method="post"
-              action="{{ url_for('admin_order_action', order_id=o.id, action='cancel') }}">
+          <form method="post"
+                action="{{ url_for('admin_order_action', order_id=o.id, action='cancel') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="small danger">Cancel</button>
           </form>
-
         </div>
         {% endif %}
       </td>
@@ -176,18 +179,19 @@
 
     {% else %}
     <tr>
-      <td colspan="6" class="muted">No orders yet.</td>
+      <td colspan="7" class="muted">No orders yet.</td>
     </tr>
     {% endfor %}
-
   </table>
 </div>
 
-<!-- Preview selected image before uploading -->
+<!-- Image preview -->
 <script>
 (function () {
     const imageInput = document.getElementById('product-image');
     const imagePreview = document.getElementById('product-image-preview');
+
+    if (!imageInput || !imagePreview) return;
 
     let previewUrl = null;
 
@@ -205,11 +209,7 @@
             return;
         }
 
-        const allowedTypes = [
-            'image/jpeg',
-            'image/png',
-            'image/webp'
-        ];
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
         if (!allowedTypes.includes(file.type)) {
             alert('Please select a JPG, PNG, or WEBP image.');

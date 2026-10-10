@@ -1,13 +1,71 @@
+
 {% extends 'base.html' %}
 {% block content %}
+
 <h1>Events</h1>
-<div class="grid2">
-{% for e in events %}
-  <div class="card"><h2><a href="{{ url_for('event_detail', event_id=e.id) }}">{{ e.name }}</a></h2>
-    <p class="muted">{{ e.starts_at|pretty }}{% if e.venue %} · {{ e.venue }}{% endif %}</p>
-    <p>Members {{ e.member_price|money }} · Non-members {{ e.public_price|money }}</p>
-    <p>{% if e.seats_left > 0 %}<span class="badge ok">{{ e.seats_left }} seats left</span>{% else %}<span class="badge bad">Sold out</span>{% endif %}</p>
-  </div>
-{% else %}<p class="muted">No events yet.</p>{% endfor %}
+
+<div class="card event-filters">
+  <label for="event-search">Search events</label>
+  <input
+    id="event-search"
+    type="search"
+    placeholder="Search by event name or venue..."
+    autocomplete="off"
+  >
+
+  <label for="event-category">Filter by category</label>
+  <select id="event-category">
+    <option value="all">All categories</option>
+    {% for category in events | map(attribute='category') | select | unique | sort %}
+      <option value="{{ category | lower }}">{{ category }}</option>
+    {% endfor %}
+  </select>
+
+  <p id="event-result-count" class="muted" aria-live="polite"></p>
 </div>
+
+<div class="grid2" id="event-list">
+{% for e in events %}
+  <div
+    class="card"
+    data-event-card
+    data-name="{{ e.name | lower }}"
+    data-venue="{{ (e.venue or '') | lower }}"
+    data-category="{{ (e.category or '') | lower }}"
+  >
+    <h2>
+      <a href="{{ url_for('event_detail', event_id=e.id) }}">
+        {{ e.name }}
+      </a>
+    </h2>
+
+    <p class="muted">
+      {{ e.starts_at | pretty }}
+      {% if e.venue %} · {{ e.venue }}{% endif %}
+    </p>
+
+    <p>
+      Members {{ e.member_price | money }}
+      · Non-members {{ e.public_price | money }}
+    </p>
+
+    {% if e.seats_left > 0 %}
+      <span class="badge ok">{{ e.seats_left }} seats left</span>
+    {% else %}
+      <span class="badge bad">Sold out</span>
+    {% endif %}
+
+    {% if e.category %}
+      <p class="muted">Category: {{ e.category }}</p>
+    {% endif %}
+  </div>
+{% else %}
+  <p class="muted">No events yet.</p>
+{% endfor %}
+</div>
+
+<p id="event-no-results" class="muted" hidden>
+  No events match your search. Try a different keyword or category.
+</p>
+
 {% endblock %}

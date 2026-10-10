@@ -8,6 +8,7 @@
     <p>Register with your email and choose a password.</p>
 
     <form method="post" class="card" style="max-width: 460px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label for="name">Full name</label>
         <input id="name" name="name" required
                value="{{ request.form.get('name', '') }}">

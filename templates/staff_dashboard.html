@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Staff Dashboard | Skyline Club{% endblock %}
+
+{% block content %}
+<section class="login-page">
+    <h1>Staff Dashboard</h1>
+
+    <p>Welcome! You have successfully logged in.</p>
+
+    <div class="card">
+        <h2>Your Assigned Role</h2>
+        <p>{{ role.replace('_', ' ') | title }}</p>
+    </div>
+
+    <p>Your role-specific tools will appear here.</p>
+</section>
+{% endblock %}

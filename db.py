@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS orders (
     discount REAL NOT NULL DEFAULT 0,
     total REAL NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
+    delivery_status TEXT NOT NULL DEFAULT 'Order Placed',
     created_at TEXT NOT NULL,
     paid_at TEXT
 );
@@ -219,6 +220,11 @@ def init_db():
             conn.execute(
                 f"ALTER TABLE orders ADD COLUMN {column} TEXT NOT NULL DEFAULT ''"
             )
+    if "delivery_status" not in order_columns:
+        conn.execute(
+            "ALTER TABLE orders ADD COLUMN delivery_status "
+            "TEXT NOT NULL DEFAULT 'Order Placed'"
+        )
 
     conn.commit()
     conn.close()

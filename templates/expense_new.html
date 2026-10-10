@@ -2,6 +2,7 @@
 {% block content %}
 <h1>Claim an expense</h1>
 <form method="post" enctype="multipart/form-data" class="card" style="max-width:520px">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>Your member email</label><input name="email" type="email" required>
   <label>Amount (₹)</label><input name="amount" type="number" step="0.01" min="0.01" required>
   <label>What was it for?</label><input name="description" required>

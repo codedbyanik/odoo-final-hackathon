@@ -23,7 +23,8 @@
     <div class="bar-track"><div class="bar-fill red" style="width:{{ (amt * 100 / expense)|round }}%"></div></div>
     {% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div>
 </div>
-<form method="post" action="{{ url_for('admin_finance_add') }}" class="card"><h2>Add a manual entry</h2>
+<form method="post" action="{{ url_for('admin_finance_add') }}" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h2>Add a manual entry</h2>
   <div class="inline">
     <div><label>Type</label><select name="kind"><option value="income">Income</option><option value="expense">Expense</option></select></div>
     <div><label>Category</label><select name="category">{% for c in income_cats %}<option>{{ c }}</option>{% endfor %}{% for c in expense_cats if c not in income_cats %}<option>{{ c }}</option>{% endfor %}</select></div>
