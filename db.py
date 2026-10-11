@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS events (
     capacity INTEGER NOT NULL,
     member_price REAL NOT NULL DEFAULT 0,
     public_price REAL NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    thumbnail_filename TEXT,
+    location_address TEXT,
+    maps_url TEXT
 );
 CREATE TABLE IF NOT EXISTS tickets (
     id INTEGER PRIMARY KEY,
@@ -150,6 +153,13 @@ CREATE TABLE IF NOT EXISTS committee_users (
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS customer_accounts (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 
@@ -187,6 +197,15 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
 
     conn.executescript(SCHEMA)
+
+    event_columns = {
+        row[1]
+        for row in conn.execute("PRAGMA table_info(events)").fetchall()
+    }
+
+    for column in ("thumbnail_filename", "location_address", "maps_url"):
+        if column not in event_columns:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {column} TEXT")
 
     # Safely add password support to existing members.
     columns = {

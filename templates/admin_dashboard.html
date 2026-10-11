@@ -4,6 +4,14 @@
 
 <h1>Committee dashboard</h1>
 
+<!-- Excel Reports button -->
+<div style="margin: 16px 0 24px;">
+  <a href="{{ url_for('admin_reports') }}"
+     class="report-download">
+    📊 Excel Reports
+  </a>
+</div>
+
 <!-- Existing summary cards -->
 <div class="grid3">
   <div class="card">
@@ -38,7 +46,7 @@
   </div>
 </div>
 
-<!-- NEW: Interactive charts -->
+<!-- Interactive charts -->
 <div class="grid2">
   <section class="card">
     <h2>Financial overview</h2>
@@ -63,7 +71,7 @@
   </section>
 </div>
 
-<!-- Existing membership and event sections -->
+<!-- Membership and event sections -->
 <div class="grid2">
   <section class="card">
     <h2>Memberships ending in 30 days</h2>
@@ -106,6 +114,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
+
   // Financial chart
   const financeCanvas = document.getElementById("financeChart");
 
@@ -183,6 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
 });
 </script>
 

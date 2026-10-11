@@ -5,7 +5,6 @@
 {% block content %}
 <section class="login-page">
     <h1>Staff Dashboard</h1>
-
     <p>Welcome! You have successfully logged in.</p>
 
     <div class="card">
@@ -13,6 +12,54 @@
         <p>{{ role.replace('_', ' ') | title }}</p>
     </div>
 
-    <p>Your role-specific tools will appear here.</p>
+    <h2>My Tools</h2>
+
+    {% if role == 'event_manager' %}
+        <div class="card">
+            <h3>Event Management</h3>
+            <p>Create and manage club events.</p>
+            <a href="{{ url_for('admin_events') }}" class="button">
+                Manage Events
+            </a>
+        </div>
+
+    {% elif role == 'checkin_staff' %}
+        <div class="card">
+            <h3>QR Scanner</h3>
+            <p>Scan attendee tickets to verify entry.</p>
+
+            <div style="margin-top: 20px;">
+                <a href="{{ url_for('admin_checkin_page') }}"
+                   class="button"
+                   style="display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; background: #5b5ce2; color: white; border-radius: 10px; font-weight: 600; text-decoration: none;">
+                    Open Door Check-in
+                </a>
+            </div>
+        </div>
+
+    {% elif role == 'treasurer' %}
+        <div class="card">
+            <h3>Finance Management</h3>
+            <p>View income, expenses, and club financial reports.</p>
+            <a href="{{ url_for('admin_finance') }}" class="button">
+                Open Finance Dashboard
+            </a>
+        </div>
+
+    
+    {% elif role == 'delivery_staff' %}
+
+    <div class="card">
+        <h3>Delivery Management</h3>
+        <p>View paid orders and update delivery progress.</p>
+
+        <a href="{{ url_for('staff_deliveries') }}" class="button">
+            📦 Open My Deliveries
+        </a>
+    </div>
+
+    {% else %}
+        <p>No staff tools are assigned to this role.</p>
+    {% endif %}
 </section>
 {% endblock %}

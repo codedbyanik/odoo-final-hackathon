@@ -1,19 +1,144 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <h1>{{ e.name }}</h1>
-<p class="muted">{{ e.starts_at|pretty }}{% if e.venue %} · {{ e.venue }}{% endif %}</p>
-<div class="grid3">
-  <div class="card"><div class="stat">{{ s.sold }}/{{ e.capacity }}</div>Paid tickets</div>
-  <div class="card"><div class="stat">{{ s.attended }}</div>Actually showed up ({{ s.rate }}%)<br><span class="muted">{{ s.no_shows }} no-shows</span></div>
-  <div class="card"><div class="stat">{{ s.revenue|money }}</div>Ticket revenue<br><span class="muted">{{ s.members }} member tickets</span></div>
+
+<p class="muted">
+  {{ e.starts_at|pretty }}
+  {% if e.venue %} · {{ e.venue }}{% endif %}
+</p>
+
+<div class="card">
+  <h2>Edit Event</h2>
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label for="name">Event Name</label>
+    <input id="name" name="name" value="{{ e.name }}" required>
+
+    <label for="starts_at">Date and Time</label>
+    <input id="starts_at" name="starts_at" type="datetime-local"
+           value="{{ e.starts_at }}" required>
+
+    <label for="venue">Venue</label>
+    <input id="venue" name="venue" value="{{ e.venue or '' }}">
+
+    <label for="location_address">Exact Event Address</label>
+    <input id="location_address" name="location_address"
+           value="{{ e.location_address or '' }}">
+
+    <label for="maps_url">Google Maps URL</label>
+    <input id="maps_url" name="maps_url" type="url"
+           value="{{ e.maps_url or '' }}">
+
+    <label for="capacity">Capacity</label>
+    <input id="capacity" name="capacity" type="number" min="1"
+           value="{{ e.capacity }}" required>
+
+    <label for="member_price">Member Price (₹)</label>
+    <input id="member_price" name="member_price" type="number"
+           step="0.01" min="0" value="{{ e.member_price }}" required>
+
+    <label for="public_price">Public Price (₹)</label>
+    <input id="public_price" name="public_price" type="number"
+           step="0.01" min="0" value="{{ e.public_price }}" required>
+
+    <label for="description">Description</label>
+    <textarea id="description" name="description" rows="3">{{ e.description or '' }}</textarea>
+
+    {% if e.thumbnail_filename %}
+      <p>Current thumbnail:</p>
+      <img
+        src="{{ url_for('static', filename='uploads/events/' ~ e.thumbnail_filename) }}"
+        alt="{{ e.name }}"
+        class="event-thumbnail"
+        style="max-width: 300px;"
+      >
+    {% endif %}
+
+    <label for="thumbnail">Replace Thumbnail (optional)</label>
+    <input id="thumbnail" name="thumbnail" type="file"
+           accept=".jpg,.jpeg,.png,.webp">
+
+    <p class="muted">Leave this empty to keep the current thumbnail.</p>
+
+    <button type="submit">Save Changes</button>
+  </form>
 </div>
-<p><a class="btn" href="{{ url_for('admin_checkin_page', event_id=e.id) }}">Open door check-in</a></p>
-<div class="table-wrap"><table>
-  <tr><th>Name</th><th>Email</th><th>Code</th><th>Price</th><th>Payment</th><th>Check-in</th></tr>
-  {% for t in attendees %}
-  <tr><td>{{ t.name }}</td><td>{{ t.email }}</td><td>{{ t.code }}</td><td>{{ t.price_paid|money }}{% if t.is_member %} <span class="badge info">member</span>{% endif %}</td>
-    <td>{% if t.paid %}<span class="badge ok">paid</span>{% else %}<span class="badge warn">unpaid</span>{% endif %}</td>
-    <td>{% if t.checked_in_at %}{{ t.checked_in_at|pretty }}{% else %}<span class="muted">not yet</span>{% endif %}</td></tr>
-  {% else %}<tr><td colspan="6" class="muted">No tickets sold yet.</td></tr>{% endfor %}
-</table></div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="stat">{{ s.sold }}/{{ e.capacity }}</div>
+    Paid tickets
+  </div>
+
+  <div class="card">
+    <div class="stat">{{ s.attended }}</div>
+    Actually showed up ({{ s.rate }}%)
+    <br>
+    <span class="muted">{{ s.no_shows }} no-shows</span>
+  </div>
+
+  <div class="card">
+    <div class="stat">{{ s.revenue|money }}</div>
+    Ticket revenue
+    <br>
+    <span class="muted">{{ s.members }} member tickets</span>
+  </div>
+</div>
+
+{% if session.get('admin') or session.get('staff_role') == 'checkin_staff' %}
+  <p>
+    <a class="btn" href="{{ url_for('admin_checkin_page', event_id=e.id) }}">
+      Open door check-in
+    </a>
+  </p>
+{% endif %}
+
+<div class="table-wrap">
+  <table>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Code</th>
+      <th>Price</th>
+      <th>Payment</th>
+      <th>Check-in</th>
+    </tr>
+
+    {% for t in attendees %}
+      <tr>
+        <td>{{ t.name }}</td>
+        <td>{{ t.email }}</td>
+        <td>{{ t.code }}</td>
+        <td>
+          {{ t.price_paid|money }}
+          {% if t.is_member %}
+            <span class="badge info">member</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if t.paid %}
+            <span class="badge ok">paid</span>
+          {% else %}
+            <span class="badge warn">unpaid</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if t.checked_in_at %}
+            {{ t.checked_in_at|pretty }}
+          {% else %}
+            <span class="muted">not yet</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="6" class="muted">No tickets sold yet.</td>
+      </tr>
+    {% endfor %}
+  </table>
+</div>
+
 {% endblock %}

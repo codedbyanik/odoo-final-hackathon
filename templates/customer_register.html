@@ -1,0 +1,38 @@
+
+{% extends "base.html" %}
+{% block title %}Create Customer Account{% endblock %}
+{% block content %}
+<section class="login-page">
+    <div class="card">
+        <h1>Create an Account</h1>
+        <p>Register to view your event tickets and QR codes.</p>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="name">Full name</label>
+            <input id="name" name="name" required maxlength="100"
+                   autocomplete="name">
+
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required
+                   autocomplete="email">
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password"
+                   minlength="8" required autocomplete="new-password">
+
+            <label for="confirm_password">Confirm password</label>
+            <input id="confirm_password" name="confirm_password"
+                   type="password" minlength="8" required
+                   autocomplete="new-password">
+
+            <button class="button" type="submit">Create Account</button>
+        </form>
+
+        <p>Already registered?
+            <a href="{{ url_for('customer_login') }}">Log in</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

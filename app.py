@@ -16,6 +16,11 @@ from email.message import EmailMessage
 from functools import wraps
 from flask_wtf.csrf import CSRFProtect
 
+from io import BytesIO
+from openpyxl import Workbook
+from flask import send_file, abort
+
+
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -103,6 +108,35 @@ PRODUCT_UPLOAD_FOLDER = os.path.join(
 os.makedirs(PRODUCT_UPLOAD_FOLDER, exist_ok=True)
 
 ALLOWED_PRODUCT_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+
+
+EVENT_UPLOAD_FOLDER = os.path.join(
+    app.root_path, "static", "uploads", "events"
+)
+os.makedirs(EVENT_UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EVENT_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+
+
+def save_event_thumbnail(file):
+    """Save an optional event thumbnail and return its filename."""
+    if not file or not file.filename:
+        return None
+
+    filename = secure_filename(file.filename)
+
+    if "." not in filename:
+        raise ValueError("Please upload a JPG, PNG, or WEBP image.")
+
+    extension = filename.rsplit(".", 1)[1].lower()
+
+    if extension not in ALLOWED_EVENT_IMAGE_EXTENSIONS:
+        raise ValueError("Only JPG, JPEG, PNG, and WEBP images are allowed.")
+
+    unique_filename = f"{uuid.uuid4().hex}.{extension}"
+    file.save(os.path.join(EVENT_UPLOAD_FOLDER, unique_filename))
+
+    return unique_filename
 
 
 app.secret_key = os.environ.get('SECRET_KEY')
@@ -206,6 +240,12 @@ def staff_required(*allowed_roles):
 
             staff_id = session.get('staff_id')
             if not staff_id:
+                if request.path == '/admin/checkin' and request.method == 'POST':
+                    return jsonify(
+                        status='unauthorized',
+                        message='Your staff session has expired. Please log in again.'
+                    ), 401
+
                 return redirect(url_for('login_choice'))
 
             staff = db.query(
@@ -225,6 +265,238 @@ def staff_required(*allowed_roles):
             return view(*args, **kwargs)
         return wrapper
     return decorator
+
+
+
+def create_excel_file(sheet_name, headers, rows):
+    """Create an Excel workbook in memory."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = sheet_name
+
+    sheet.append(headers)
+
+    for row in rows:
+        sheet.append(list(row))
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
+def download_excel(sheet_name, headers, rows, filename):
+    output = create_excel_file(sheet_name, headers, rows)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+    )
+
+
+# ==========================================
+# EXCEL REPORT DOWNLOAD ROUTES
+# ==========================================
+
+@app.get('/admin/reports/events.xlsx')
+@staff_required('event_manager')
+def report_events_excel():
+    rows = query("""
+        SELECT
+            e.id,
+            e.name,
+            e.description,
+            e.venue,
+            e.location_address,
+            e.maps_url,
+            e.starts_at,
+            e.capacity,
+            e.member_price,
+            e.public_price,
+            e.created_at
+        FROM events e
+        ORDER BY e.starts_at DESC
+    """)
+
+    headers = [
+        'Event ID', 'Event Name', 'Description', 'Venue',
+        'Address', 'Maps URL', 'Start Date/Time',
+        'Capacity', 'Member Price', 'Public Price', 'Created At'
+    ]
+
+    data = [
+        [r[h] for h in [
+            'id', 'name', 'description', 'venue',
+            'location_address', 'maps_url', 'starts_at',
+            'capacity', 'member_price', 'public_price', 'created_at'
+        ]]
+        for r in rows
+    ]
+
+    return download_excel(
+        'Events', headers, data, 'Events.xlsx'
+    )
+
+
+@app.get('/admin/reports/ticket-sales.xlsx')
+@staff_required('event_manager')
+def report_ticket_sales_excel():
+    rows = query("""
+        SELECT
+            t.id AS ticket_id,
+            e.name AS event_name,
+            t.name AS attendee_name,
+            t.email,
+            t.code AS ticket_code,
+            t.price_paid,
+            t.paid,
+            t.created_at,
+            t.checked_in_at
+        FROM tickets t
+        JOIN events e ON e.id = t.event_id
+        WHERE t.paid = 1
+        ORDER BY t.created_at DESC
+    """)
+
+    headers = [
+        'Ticket ID', 'Event', 'Attendee', 'Email',
+        'Ticket Code', 'Amount Paid', 'Paid',
+        'Purchase Date', 'Check-in Time'
+    ]
+
+    data = [
+        [
+            r['ticket_id'],
+            r['event_name'],
+            r['attendee_name'],
+            r['email'],
+            r['ticket_code'],
+            r['price_paid'],
+            'Yes' if r['paid'] else 'No',
+            r['created_at'],
+            r['checked_in_at'] or 'Not checked in'
+        ]
+        for r in rows
+    ]
+
+    return download_excel(
+        'Ticket Sales', headers, data, 'Ticket_Sales.xlsx'
+    )
+
+
+@app.get('/admin/reports/attendance.xlsx')
+@staff_required('event_manager')
+def report_attendance_excel():
+    rows = query("""
+        SELECT
+            t.id AS ticket_id,
+            e.name AS event_name,
+            t.name AS attendee_name,
+            t.email,
+            t.code AS ticket_code,
+            t.checked_in_at
+        FROM tickets t
+        JOIN events e ON e.id = t.event_id
+        WHERE t.paid = 1
+        ORDER BY e.starts_at DESC, t.name COLLATE NOCASE
+    """)
+
+    headers = [
+        'Ticket ID', 'Event', 'Attendee', 'Email',
+        'Ticket Code', 'Attendance Status', 'Check-in Time'
+    ]
+
+    data = [
+        [
+            r['ticket_id'],
+            r['event_name'],
+            r['attendee_name'],
+            r['email'],
+            r['ticket_code'],
+            'Present' if r['checked_in_at'] else 'Not checked in',
+            r['checked_in_at'] or ''
+        ]
+        for r in rows
+    ]
+
+    return download_excel(
+        'Attendance', headers, data, 'Attendance.xlsx'
+    )
+
+
+@app.get('/admin/reports/merchandise-sales.xlsx')
+@admin_required
+def report_merchandise_sales_excel():
+    rows = query("""
+        SELECT
+            o.id AS order_id,
+            o.created_at,
+            o.name AS customer_name,
+            o.email,
+            o.phone,
+            o.address,
+            o.city,
+            o.pincode,
+            o.delivery_status,
+            p.name AS product_name,
+            v.size,
+            oi.qty,
+            oi.unit_price,
+            o.total AS order_total,
+            o.status
+        FROM orders o
+        JOIN order_items oi ON oi.order_id = o.id
+        JOIN variants v ON v.id = oi.variant_id
+        JOIN products p ON p.id = v.product_id
+        WHERE LOWER(o.status) = 'paid'
+        ORDER BY o.created_at DESC
+    """)
+
+    headers = [
+        'Order ID', 'Order Date', 'Customer', 'Email',
+        'Phone', 'Address', 'City', 'Pincode',
+        'Delivery Status', 'Product', 'Size',
+        'Quantity', 'Unit Price', 'Order Total', 'Status'
+    ]
+
+    data = [
+        [
+            r['order_id'],
+            r['created_at'],
+            r['customer_name'],
+            r['email'],
+            r['phone'],
+            r['address'],
+            r['city'],
+            r['pincode'],
+            r['delivery_status'],
+            r['product_name'],
+            r['size'],
+            r['qty'],
+            r['unit_price'],
+            r['order_total'],
+            r['status']
+        ]
+        for r in rows
+    ]
+
+    return download_excel(
+        'Merchandise Sales',
+        headers,
+        data,
+        'Merchandise_Sales.xlsx'
+    )
+
+
+@app.get('/admin/reports')
+@staff_required('event_manager')
+def admin_reports():
+    return render_template('admin_reports.html')
 
 
 
@@ -626,14 +898,60 @@ def buy_tickets(event_id):
     return redirect(url_for('tickets_page', batch=batch))
 
 
+
 @app.get('/tickets/<batch>')
 def tickets_page(batch):
-    rows = query("""SELECT t.*, e.name AS event_name, e.venue, e.starts_at FROM tickets t
-                    JOIN events e ON e.id = t.event_id WHERE t.batch = ? ORDER BY t.id""", (batch,))
+    rows = query("""
+        SELECT t.*, e.name AS event_name, e.venue, e.starts_at
+        FROM tickets t
+        JOIN events e ON e.id = t.event_id
+        WHERE t.batch = ?
+        ORDER BY t.id
+    """, (batch,))
+
     if not rows:
         abort(404)
-    unpaid_total = sum(r['price_paid'] for r in rows if not r['paid'])
-    return render_template('tickets.html', tickets=rows, batch=batch, unpaid_total=unpaid_total)
+
+    # Require a customer login before displaying tickets and QR codes.
+    customer_id = session.get('customer_id')
+
+    if not customer_id:
+        session['pending_ticket_batch'] = batch
+        flash(
+            'Please log in or create an account using the same email '
+            'you used to purchase the tickets.',
+            'info'
+        )
+        return redirect(url_for('customer_login'))
+
+    customer = query(
+        'SELECT email FROM customer_accounts WHERE id = ?',
+        (customer_id,),
+        one=True
+    )
+
+    if not customer:
+        session.pop('customer_id', None)
+        abort(403)
+
+    # Only the account matching the ticket email can view the QR codes.
+    if any(
+        ticket['email'].strip().lower() != customer['email'].strip().lower()
+        for ticket in rows
+    ):
+        abort(403)
+
+    unpaid_total = sum(
+        ticket['price_paid'] for ticket in rows if not ticket['paid']
+    )
+
+    return render_template(
+        'tickets.html',
+        tickets=rows,
+        batch=batch,
+        unpaid_total=unpaid_total
+    )
+
 
 
 @app.route('/pay/tickets/<batch>', methods=['GET', 'POST'])
@@ -657,13 +975,30 @@ def announcements():
     return render_template('announcements.html', posts=query('SELECT * FROM announcements ORDER BY id DESC'))
 
 
+
 @app.get('/shop')
 def shop():
-    products = query('SELECT * FROM products WHERE active = 1 ORDER BY id')
+    if not session.get('customer_id'):
+        flash(
+            'Please log in first to access the merchandise shop.',
+            'info'
+        )
+        return redirect(url_for('customer_login', next=url_for('shop')))
+
+    products = query(
+        'SELECT * FROM products WHERE active = 1 ORDER BY id'
+    )
+
     variants = {}
     for v in query('SELECT * FROM variants ORDER BY id'):
         variants.setdefault(v['product_id'], []).append(v)
-    return render_template('shop.html', products=products, variants=variants)
+
+    return render_template(
+        'shop.html',
+        products=products,
+        variants=variants
+    )
+
 
 
 @app.post('/shop/order')
@@ -895,38 +1230,162 @@ def admin_member_remind(member_id):
 
 
 @app.route('/admin/events', methods=['GET', 'POST'])
-@admin_required
+@staff_required('event_manager')
 def admin_events():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         starts_at = request.form.get('starts_at', '').strip()
         capacity = to_int(request.form.get('capacity'))
+
+        description = request.form.get('description', '').strip()
+        venue = request.form.get('venue', '').strip()
+        location_address = request.form.get('location_address', '').strip()
+        maps_url = request.form.get('maps_url', '').strip()
+
+        member_price = to_float(request.form.get('member_price'))
+        public_price = to_float(request.form.get('public_price'))
+
         if not name or not starts_at or capacity < 1:
             flash('Name, date and a capacity of at least 1 are required.', 'error')
-        else:
-            execute("""INSERT INTO events(name, description, venue, starts_at, capacity, member_price, public_price, created_at)
-                       VALUES (?,?,?,?,?,?,?,?)""",
-                    (name, request.form.get('description', '').strip(), request.form.get('venue', '').strip(),
-                     starts_at, capacity, to_float(request.form.get('member_price')),
-                     to_float(request.form.get('public_price')), now_iso()))
-            flash('Event created.')
+            return redirect(url_for('admin_events'))
+
+        thumbnail = request.files.get('thumbnail')
+
+        try:
+            thumbnail_filename = save_event_thumbnail(thumbnail)
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('admin_events'))
+
+        execute("""
+            INSERT INTO events (
+                name, description, venue, starts_at, capacity,
+                member_price, public_price, created_at,
+                thumbnail_filename, location_address, maps_url
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            name,
+            description,
+            venue,
+            starts_at,
+            capacity,
+            member_price,
+            public_price,
+            now_iso(),
+            thumbnail_filename,
+            location_address,
+            maps_url
+        ))
+
+        flash('Event created successfully.')
         return redirect(url_for('admin_events'))
+
     rows = query(EVENT_SQL + ' ORDER BY e.starts_at DESC')
-    return render_template('admin_events.html', events=rows, stats={r['id']: event_stats(r['id']) for r in rows})
+
+    return render_template(
+        'admin_events.html',
+        events=rows,
+        stats={r['id']: event_stats(r['id']) for r in rows}
+    )
 
 
-@app.get('/admin/events/<int:event_id>')
-@admin_required
+@app.route('/admin/events/<int:event_id>', methods=['GET', 'POST'])
+@staff_required('event_manager')
 def admin_event(event_id):
-    event = query(EVENT_SQL + ' WHERE e.id = ?', (event_id,), one=True)
+    event = query(
+        'SELECT * FROM events WHERE id = ?',
+        (event_id,),
+        one=True
+    )
+
     if not event:
         abort(404)
-    attendees = query('SELECT * FROM tickets WHERE event_id = ? ORDER BY name', (event_id,))
-    return render_template('admin_event.html', e=event, s=event_stats(event_id), attendees=attendees)
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        starts_at = request.form.get('starts_at', '').strip()
+        capacity = to_int(request.form.get('capacity'))
+
+        if not name or not starts_at or capacity < 1:
+            flash('Name, date and a capacity of at least 1 are required.', 'error')
+            return redirect(url_for('admin_event', event_id=event_id))
+
+        issued_tickets = query(
+            'SELECT COUNT(*) AS total FROM tickets WHERE event_id = ?',
+            (event_id,),
+            one=True
+        )['total']
+
+        if capacity < issued_tickets:
+            flash(
+                f'Capacity cannot be less than the {issued_tickets} tickets already issued.',
+                'error'
+            )
+            return redirect(url_for('admin_event', event_id=event_id))
+
+        thumbnail_filename = event['thumbnail_filename']
+        thumbnail = request.files.get('thumbnail')
+
+        try:
+            new_thumbnail = save_event_thumbnail(thumbnail)
+            if new_thumbnail:
+                thumbnail_filename = new_thumbnail
+        except ValueError as exc:
+            flash(str(exc), 'error')
+            return redirect(url_for('admin_event', event_id=event_id))
+
+        execute("""
+            UPDATE events
+            SET name = ?,
+                description = ?,
+                venue = ?,
+                starts_at = ?,
+                capacity = ?,
+                member_price = ?,
+                public_price = ?,
+                thumbnail_filename = ?,
+                location_address = ?,
+                maps_url = ?
+            WHERE id = ?
+        """, (
+            name,
+            request.form.get('description', '').strip(),
+            request.form.get('venue', '').strip(),
+            starts_at,
+            capacity,
+            to_float(request.form.get('member_price')),
+            to_float(request.form.get('public_price')),
+            thumbnail_filename,
+            request.form.get('location_address', '').strip(),
+            request.form.get('maps_url', '').strip(),
+            event_id
+        ))
+
+        flash('Event updated successfully.')
+        return redirect(url_for('admin_event', event_id=event_id))
+
+    event = query(
+        EVENT_SQL + ' WHERE e.id = ?',
+        (event_id,),
+        one=True
+    )
+
+    attendees = query(
+        'SELECT * FROM tickets WHERE event_id = ? ORDER BY name',
+        (event_id,)
+    )
+
+    return render_template(
+        'admin_event.html',
+        e=event,
+        s=event_stats(event_id),
+        attendees=attendees
+    )
 
 
 @app.get('/admin/checkin')
-@admin_required
+@staff_required('checkin_staff')
 def admin_checkin_page():
     events = query(EVENT_SQL + ' ORDER BY e.starts_at DESC')
     upcoming = query('SELECT id FROM events WHERE starts_at >= ? ORDER BY starts_at LIMIT 1', (today_iso(),), one=True)
@@ -942,7 +1401,7 @@ def api_event_stats(event_id):
 
 
 @app.post('/admin/checkin')
-@admin_required
+@staff_required('checkin_staff')
 def checkin():
     code = request.form.get('code', '').strip().upper()
     event_id = to_int(request.form.get('event_id'))
@@ -1258,7 +1717,7 @@ def finance_rows():
 
 
 @app.get('/admin/finance')
-@admin_required
+@staff_required('treasurer')
 def admin_finance():
     rows, start, end, category = finance_rows()
     income = sum(r['amount'] for r in rows if r['kind'] == 'income')
@@ -1273,7 +1732,7 @@ def admin_finance():
 
 
 @app.post('/admin/finance/add')
-@admin_required
+@staff_required('treasurer')
 def admin_finance_add():
     kind = request.form.get('kind')
     category = request.form.get('category', 'other')
@@ -1288,7 +1747,7 @@ def admin_finance_add():
 
 
 @app.get('/admin/finance.csv')
-@admin_required
+@staff_required('treasurer')
 def admin_finance_csv():
     rows, *_ = finance_rows()
     out = io.StringIO()
@@ -1581,6 +2040,184 @@ def member_logout():
     flash('You have been logged out.', 'success')
     return redirect(url_for('home'))
 
+
+@app.get('/staff/deliveries')
+@staff_required('delivery_staff')
+def staff_deliveries():
+    orders = query("""
+        SELECT id, name, phone, address, city, pincode,
+               total, status, delivery_status, created_at
+        FROM orders
+        WHERE status = 'paid'
+        ORDER BY id DESC
+    """)
+    return render_template('staff_deliveries.html', orders=orders)
+
+
+@app.post('/staff/deliveries/<int:order_id>/status')
+@staff_required('delivery_staff')
+def staff_update_delivery_status(order_id):
+    allowed_statuses = [
+        'Order Placed',
+        'Processing',
+        'Shipped',
+        'Delivered',
+        'Cancelled'
+    ]
+
+    new_status = request.form.get('delivery_status', '').strip()
+
+    if new_status not in allowed_statuses:
+        flash('Invalid delivery status.', 'error')
+        return redirect(url_for('staff_deliveries'))
+
+    order = query(
+        'SELECT id FROM orders WHERE id = ? AND status = ?',
+        (order_id, 'paid'),
+        one=True
+    )
+
+    if not order:
+        flash('Paid order not found.', 'error')
+        return redirect(url_for('staff_deliveries'))
+
+    execute(
+        'UPDATE orders SET delivery_status = ? WHERE id = ?',
+        (new_status, order_id)
+    )
+
+    flash(f'Order #{order_id} delivery status updated successfully.')
+    return redirect(url_for('staff_deliveries'))
+
+
+@app.route('/customer-register', methods=['GET', 'POST'])
+def customer_register():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        if not name or '@' not in email:
+            flash('Enter your name and a valid email.', 'error')
+        elif len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+        elif password != confirm_password:
+            flash('Passwords do not match.', 'error')
+        elif query(
+            'SELECT id FROM customer_accounts WHERE email = ?',
+            (email,),
+            one=True
+        ):
+            flash('An account already exists. Please log in.', 'error')
+        else:
+            try:
+                customer_id = execute(
+                    '''
+                    INSERT INTO customer_accounts
+                        (name, email, password_hash)
+                    VALUES (?, ?, ?)
+                    ''',
+                    (name, email, generate_password_hash(password))
+                )
+
+                session.clear()
+                session['customer_id'] = customer_id
+                flash('Account created successfully.', 'success')
+                return redirect(url_for('customer_dashboard'))
+
+            except sqlite3.IntegrityError:
+                flash('An account already exists for this email.', 'error')
+
+    return render_template('customer_register.html')
+
+
+@app.route('/customer-login', methods=['GET', 'POST'])
+def customer_login():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
+        customer = query(
+            '''
+            SELECT id, email, password_hash
+            FROM customer_accounts
+            WHERE email = ?
+            ''',
+            (email,),
+            one=True
+        )
+
+        if not customer or not check_password_hash(
+            customer['password_hash'], password
+        ):
+            flash('Invalid email or password.', 'error')
+            return render_template('customer_login.html')
+
+        session.clear()
+        session['customer_id'] = customer['id']
+        flash('Logged in successfully.', 'success')
+        return redirect(url_for('customer_dashboard'))
+
+    return render_template('customer_login.html')
+
+
+
+@app.get('/customer-dashboard')
+def customer_dashboard():
+    customer_id = session.get('customer_id')
+
+    if not customer_id:
+        flash('Please log in to view your account.', 'info')
+        return redirect(url_for('customer_login'))
+
+    customer = query(
+        'SELECT id, name, email FROM customer_accounts WHERE id = ?',
+        (customer_id,),
+        one=True
+    )
+
+    if not customer:
+        session.clear()
+        flash('Account not found. Please log in again.', 'error')
+        return redirect(url_for('customer_login'))
+
+    tickets = query(
+        '''
+        SELECT t.*, e.name AS event_name, e.venue, e.starts_at
+        FROM tickets t
+        JOIN events e ON e.id = t.event_id
+        WHERE LOWER(t.email) = LOWER(?)
+        ORDER BY t.id DESC
+        ''',
+        (customer['email'],)
+    )
+
+    orders = query(
+        '''
+        SELECT id, email, total, status, delivery_status,
+               address, city, pincode, created_at, paid_at
+        FROM orders
+        WHERE LOWER(email) = LOWER(?)
+        ORDER BY id DESC
+        ''',
+        (customer['email'],)
+    )
+
+    return render_template(
+        'customer_dashboard.html',
+        customer=customer,
+        tickets=tickets,
+        orders=orders
+    )
+
+
+
+@app.post('/customer-logout')
+def customer_logout():
+    session.pop('customer_id', None)
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('home'))
 
 
 if __name__ == '__main__':

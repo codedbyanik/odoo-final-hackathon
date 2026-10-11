@@ -1,0 +1,132 @@
+
+{% extends "base.html" %}
+
+{% block title %}My Account | Skyline Club{% endblock %}
+
+{% block content %}
+<section class="login-page">
+
+    <h1>Welcome, {{ customer['name'] }}</h1>
+    <p>{{ customer['email'] }}</p>
+
+    <form method="POST" action="{{ url_for('customer_logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="button" type="submit">Log Out</button>
+    </form>
+
+    <hr>
+
+    <!-- EVENT TICKETS -->
+    <h2>My Event Tickets</h2>
+
+    {% if tickets %}
+        {% for ticket in tickets %}
+            <div class="card">
+                <h3>{{ ticket['event_name'] }}</h3>
+
+                <p>
+                    <strong>Ticket code:</strong>
+                    {{ ticket['code'] }}
+                </p>
+
+                <p>
+                    <strong>Venue:</strong>
+                    {{ ticket['venue'] or 'To be announced' }}
+                </p>
+
+                <p>
+                    <strong>Event date:</strong>
+                    {{ ticket['starts_at'] }}
+                </p>
+
+                <p>
+                    <strong>Payment:</strong>
+                    {{ 'Paid' if ticket['paid'] else 'Pending' }}
+                </p>
+
+                <p>
+                    <strong>Check-in:</strong>
+                    {{ 'Checked in' if ticket['checked_in_at'] else 'Not checked in' }}
+                </p>
+
+                {% if ticket['paid'] %}
+                    <a class="button"
+                       href="{{ url_for('tickets_page', batch=ticket['batch']) }}">
+                        View Ticket and QR
+                    </a>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <p>You haven't purchased any event tickets yet.</p>
+            <a class="button" href="{{ url_for('events') }}">
+                Browse Events
+            </a>
+        </div>
+    {% endif %}
+
+    <hr>
+
+    <!-- MERCHANDISE ORDERS -->
+    <h2>My Merchandise Orders</h2>
+
+    {% if orders %}
+        {% for order in orders %}
+            <div class="card">
+                <h3>Order #{{ order['id'] }}</h3>
+
+                <p>
+                    <strong>Order date:</strong>
+                    {{ order['created_at'] }}
+                </p>
+
+                <p>
+                    <strong>Total amount:</strong>
+                    {{ order['total']|money }}
+                </p>
+
+                <p>
+                    <strong>Payment status:</strong>
+                    {{ order['status']|title }}
+                </p>
+
+                <p>
+                    <strong>Delivery status:</strong>
+                    {{ order['delivery_status'] or 'Order Placed' }}
+                </p>
+
+                <p>
+                    <strong>Delivery address:</strong><br>
+                    {{ order['address'] or 'Not provided' }}<br>
+                    {{ order['city'] or '' }}
+                    {% if order['pincode'] %}
+                        - {{ order['pincode'] }}
+                    {% endif %}
+                </p>
+
+                {% if order['paid_at'] %}
+                    <p>
+                        <strong>Payment date:</strong>
+                        {{ order['paid_at'] }}
+                    </p>
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <p>You haven't placed any merchandise orders yet.</p>
+            <a class="button" href="{{ url_for('shop') }}">
+                Browse Merchandise
+            </a>
+        </div>
+    {% endif %}
+
+    <hr>
+
+    <a class="button" href="{{ url_for('home') }}">
+        Back to Home
+    </a>
+
+</section>
+{% endblock %}

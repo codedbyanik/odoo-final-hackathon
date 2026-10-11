@@ -1,0 +1,91 @@
+
+{% extends "base.html" %}
+
+{% block title %}My Deliveries | Skyline Club{% endblock %}
+
+{% block content %}
+<section class="login-page">
+    <h1>Delivery Management</h1>
+    <p>View paid orders and update their delivery progress.</p>
+
+    <p>
+        <a href="{{ url_for('staff_dashboard') }}" class="button">
+            ← Back to Dashboard
+        </a>
+    </p>
+
+    {% if orders %}
+        <div class="card">
+            <h2>Paid Orders ({{ orders|length }})</h2>
+
+            {% for order in orders %}
+                <div class="card" style="margin: 16px 0; padding: 20px;">
+                    <h3>Order #{{ order['id'] }}</h3>
+
+                    <p><strong>Customer:</strong>
+                        {{ order['name'] }}</p>
+
+                    <p><strong>Phone:</strong>
+                        {{ order['phone'] or 'Not provided' }}</p>
+
+                    <p><strong>Address:</strong>
+                        {{ order['address'] or 'Not provided' }},
+                        {{ order['city'] or '' }}
+                        {{ order['pincode'] or '' }}
+                    </p>
+
+                    <p><strong>Total:</strong>
+                        {{ order['total'] }}</p>
+
+                    <p><strong>Payment status:</strong>
+                        {{ order['status']|title }}</p>
+
+                    <p><strong>Delivery status:</strong>
+                        {{ order['delivery_status'] or 'Order Placed' }}</p>
+
+                    <form method="POST"
+                          action="{{ url_for('staff_update_delivery_status',
+                                             order_id=order['id']) }}">
+
+                        <input type="hidden"
+                               name="csrf_token"
+                               value="{{ csrf_token() }}">
+
+                        <label for="status-{{ order['id'] }}">
+                            Update delivery status
+                        </label>
+
+                        <select id="status-{{ order['id'] }}"
+                                name="delivery_status"
+                                required>
+                            {% for status in [
+                                'Order Placed',
+                                'Processing',
+                                'Shipped',
+                                'Delivered',
+                                'Cancelled'
+                            ] %}
+                                <option value="{{ status }}"
+                                    {% if (order['delivery_status'] or 'Order Placed') == status %}
+                                        selected
+                                    {% endif %}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <button type="submit" class="button">
+                            Save Status
+                        </button>
+                    </form>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <h2>No paid orders yet</h2>
+            <p>Paid orders will appear here when customers place them.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

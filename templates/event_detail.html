@@ -1,31 +1,116 @@
 {% extends 'base.html' %}
 {% block content %}
+
 <h1>{{ e.name }}</h1>
+
+{% if e.thumbnail_filename %}
+<div class="card">
+  <img
+    src="{{ url_for('static', filename='uploads/events/' ~ e.thumbnail_filename) }}"
+    alt="{{ e.name }}"
+    class="event-thumbnail"
+  >
+</div>
+{% endif %}
+
 <div class="grid2">
-  <div class="card"><p class="muted">{{ e.starts_at|pretty }}{% if e.venue %} · {{ e.venue }}{% endif %}</p>
+  <div class="card">
+    <p class="muted">
+      {{ e.starts_at|pretty }}
+      {% if e.venue %} · {{ e.venue }}{% endif %}
+    </p>
+
+    {% if e.location_address %}
+    <p>
+      <strong>Exact Location:</strong><br>
+      {{ e.location_address }}
+    </p>
+    {% endif %}
+
+    {% if e.maps_url %}
+    <p>
+      <a
+        href="{{ e.maps_url }}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn"
+      >
+        Get Directions
+      </a>
+    </p>
+    {% endif %}
+
     <p>{{ e.description }}</p>
-    <p>Members <strong>{{ e.member_price|money }}</strong> · Non-members <strong>{{ e.public_price|money }}</strong></p>
-    <p>{% if e.seats_left > 0 %}<span class="badge ok">{{ e.seats_left }} of {{ e.capacity }} seats left</span>{% else %}<span class="badge bad">Sold out</span>{% endif %}</p>
+
+    <p>
+      Members <strong>{{ e.member_price|money }}</strong>
+      · Non-members <strong>{{ e.public_price|money }}</strong>
+    </p>
+
+    <p>
+      {% if e.seats_left > 0 %}
+        <span class="badge ok">
+          {{ e.seats_left }} of {{ e.capacity }} seats left
+        </span>
+      {% else %}
+        <span class="badge bad">Sold out</span>
+      {% endif %}
+    </p>
   </div>
+
   {% if e.seats_left > 0 %}
-  <form method="post" action="{{ url_for('buy_tickets', event_id=e.id) }}" class="card">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <form
+    method="post"
+    action="{{ url_for('buy_tickets', event_id=e.id) }}"
+    class="card"
+  >
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <h2>Get tickets</h2>
-    <label>Name</label><input name="name" required>
-    <label>Email (use your member email for the member price)</label><input name="email" id="email" type="email" required>
-    <label>Tickets</label><input name="qty" type="number" min="1" max="{{ [5, e.seats_left]|min }}" value="1" required>
+
+    <label>Name</label>
+    <input name="name" required>
+
+    <label>Email (use your member email for the member price)</label>
+    <input name="email" id="email" type="email" required>
+
+    <label>Tickets</label>
+    <input
+      name="qty"
+      type="number"
+      min="1"
+      max="{{ [5, e.seats_left]|min }}"
+      value="1"
+      required
+    >
+
     <p id="price" class="muted"></p>
+
     <button type="submit">Continue</button>
   </form>
   {% endif %}
 </div>
+
 <script>
-const email = document.getElementById('email'), priceBox = document.getElementById('price');
-if (email) email.addEventListener('blur', async () => {
-  if (!email.value) return;
-  const r = await fetch('{{ url_for("api_event_price", event_id=e.id) }}?email=' + encodeURIComponent(email.value));
-  const j = await r.json();
-  priceBox.textContent = (j.member ? 'Member price applied: ' : 'Price per ticket: ') + '₹' + j.price.toFixed(2);
-});
+const email = document.getElementById('email');
+const priceBox = document.getElementById('price');
+
+if (email) {
+  email.addEventListener('blur', async () => {
+    if (!email.value) return;
+
+    const r = await fetch(
+      '{{ url_for("api_event_price", event_id=e.id) }}?email=' +
+      encodeURIComponent(email.value)
+    );
+
+    const j = await r.json();
+
+    priceBox.textContent =
+      (j.member ? 'Member price applied: ' : 'Price per ticket: ') +
+      '₹' + j.price.toFixed(2);
+  });
+}
 </script>
+
 {% endblock %}

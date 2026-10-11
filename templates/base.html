@@ -16,8 +16,10 @@
     rel="stylesheet"
   >
 
-  <link rel="stylesheet"
-        href="{{ url_for('static', filename='style.css') }}">
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='style.css') }}"
+  >
 </head>
 
 <body>
@@ -42,6 +44,8 @@
     </nav>
 
     <div class="nav-actions">
+
+      <!-- Theme toggle -->
       <button
         type="button"
         id="theme-toggle"
@@ -52,41 +56,80 @@
         <span id="theme-label">Dark</span>
       </button>
 
+      <!-- Admin, member, customer and committee navigation -->
       {% if is_admin %}
+
         <form action="{{ url_for('logout') }}" method="POST">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+          >
           <button type="submit" class="nav-link">
             Log out
           </button>
         </form>
-      
-
 
       {% elif session.get('member_id') %}
+
         <a class="nav-link" href="{{ url_for('member_dashboard') }}">
           My Account
         </a>
 
         <form action="{{ url_for('member_logout') }}" method="POST">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+          >
           <button type="submit" class="nav-link">
             Log out
           </button>
         </form>
-      {% else %}
-        <a class="nav-link" href="{{ url_for('login_choice') }}">
-          Committee login
+
+      {% elif session.get('customer_id') %}
+
+        <a class="nav-link" href="{{ url_for('customer_dashboard') }}">
+          My Tickets
         </a>
+
+        <form action="{{ url_for('customer_logout') }}" method="POST">
+          <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token() }}"
+          >
+          <button type="submit" class="nav-link">
+            Customer Logout
+          </button>
+        </form>
+
+      {% else %}
+
+        <a class="nav-link" href="{{ url_for('customer_login') }}">
+          Customer Login
+        </a>
+
+        <a class="nav-link" href="{{ url_for('customer_register') }}">
+          Create Account
+        </a>
+
+        <a class="nav-link" href="{{ url_for('login_choice') }}">
+          Committee Login
+        </a>
+
       {% endif %}
 
+      <!-- Join the club -->
       <a class="btn btn-nav" href="{{ url_for('join') }}">
         Join the club <span aria-hidden="true">↗</span>
       </a>
-    </div>
 
+    </div>
   </div>
 </header>
 
+<!-- Admin workspace navigation -->
 {% if is_admin %}
 <div class="admin-shell">
   <div class="container adminbar" aria-label="Committee navigation">
@@ -112,7 +155,7 @@
 
 <main class="container page-content">
 
-  <!-- Existing Flask flash messages -->
+  <!-- Flask flash messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
       <div class="flash {{ category }}">
@@ -136,6 +179,7 @@
   aria-atomic="false">
 </div>
 
+<!-- Footer -->
 <footer class="site-footer">
   <div class="container footer-inner">
 
@@ -161,6 +205,46 @@
   src="{{ url_for('static', filename='script.js') }}"
   defer>
 </script>
+
+<footer class="skyline-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <h2>SKYLINE<span>✳</span></h2>
+      <p>Your campus. Your people. Your moments.</p>
+    </div>
+
+    <div class="footer-social">
+      <h3>Follow the vibe</h3>
+      <p>Stay connected with Skyline Club.</p>
+
+      <div class="footer-social-links">
+        <a href="https://www.instagram.com/YOUR_INSTAGRAM/"
+           target="_blank" rel="noopener noreferrer">
+          Instagram ↗
+        </a>
+
+        <a href="https://www.facebook.com/YOUR_FACEBOOK/"
+           target="_blank" rel="noopener noreferrer">
+          Facebook ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="footer-contact">
+      <h3>Need help?</h3>
+      <p>Contact the club administrator.</p>
+
+      <a href="tel:+911234567891" class="footer-phone">
+        ☎ Admin: +91 12345 67891
+      </a>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>© 2026 Skyline Student Association</span>
+    <span>MEET · MAKE · BELONG</span>
+  </div>
+</footer>
 
 </body>
 </html>

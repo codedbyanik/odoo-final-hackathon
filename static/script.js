@@ -192,3 +192,107 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 })();
+
+
+/* Skyline Club: shop quantity buttons and cart summary */
+document.addEventListener("DOMContentLoaded", () => {
+  const shopForm = document.getElementById("shop-form");
+
+  // Do nothing on pages other than the shop page.
+  if (!shopForm) return;
+
+  const quantityInputs = shopForm.querySelectorAll(".shop-quantity");
+  const cartItems = document.getElementById("cart-items");
+  const cartEmpty = document.getElementById("cart-empty");
+  const cartCount = document.getElementById("cart-count");
+  const cartTotal = document.getElementById("cart-total");
+  const placeOrderButton = document.getElementById("place-order-btn");
+  const cartWarning = document.getElementById("cart-warning");
+
+  function updateCart() {
+    let totalItems = 0;
+    let subtotal = 0;
+
+    if (cartItems) cartItems.replaceChildren();
+
+    quantityInputs.forEach((input) => {
+      const min = Number(input.min || 0);
+      const max = input.max === "" ? Infinity : Number(input.max);
+      let quantity = Number.parseInt(input.value, 10);
+
+      if (!Number.isFinite(quantity)) quantity = min;
+
+      quantity = Math.max(min, Math.min(max, quantity));
+      input.value = quantity;
+
+      if (quantity <= 0) return;
+
+      const price = Number(input.dataset.price) || 0;
+      const lineTotal = price * quantity;
+
+      totalItems += quantity;
+      subtotal += lineTotal;
+
+      if (cartItems) {
+        const line = document.createElement("p");
+        const product = input.dataset.product || "Product";
+        const size = input.dataset.size || "";
+        line.textContent =
+          `${product} (${size}) × ${quantity} — ₹${lineTotal.toFixed(2)}`;
+        cartItems.appendChild(line);
+      }
+    });
+
+    if (cartCount) cartCount.textContent = totalItems;
+    if (cartTotal) cartTotal.textContent = `₹${subtotal.toFixed(2)}`;
+
+    if (cartEmpty) {
+      cartEmpty.hidden = totalItems > 0;
+    }
+
+    if (placeOrderButton) {
+      placeOrderButton.disabled = totalItems === 0;
+    }
+
+    if (cartWarning) {
+      cartWarning.textContent = totalItems > 0
+        ? "Your selection is ready. Check your details before placing the order."
+        : "Select at least one item to continue.";
+    }
+  }
+
+  // Handle both + and − buttons.
+  shopForm.addEventListener("click", (event) => {
+    const button = event.target.closest(".qty-btn");
+    if (!button || !shopForm.contains(button)) return;
+
+    const inputId = button.dataset.target;
+    const input = document.getElementById(inputId);
+
+    if (!input || !shopForm.contains(input)) return;
+
+    const step = Number(button.dataset.step);
+    if (step !== 1 && step !== -1) return;
+
+    const min = Number(input.min || 0);
+    const max = input.max === "" ? Infinity : Number(input.max);
+    const current = Number.parseInt(input.value, 10);
+    const quantity = Number.isFinite(current) ? current : min;
+
+    input.value = Math.max(min, Math.min(max, quantity + step));
+
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    updateCart();
+  });
+
+  // Also update the cart when a customer types a quantity manually.
+  quantityInputs.forEach((input) => {
+    input.addEventListener("input", updateCart);
+    input.addEventListener("change", updateCart);
+  });
+
+  updateCart();
+});
+

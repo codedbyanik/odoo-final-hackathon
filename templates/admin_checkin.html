@@ -1,58 +1,320 @@
+
 {% extends 'base.html' %}
 {% block content %}
+
 <h1>Door check-in</h1>
-{% if not events %}<p class="muted">Create an event first.</p>{% else %}
+
+{% if not events %}
+<p class="muted">Create an event first.</p>
+{% else %}
+
+<!-- CSRF token for Flask-WTF protection -->
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
 <div class="card">
-  <label>Event</label>
+  <label for="event">Event</label>
   <select id="event" onchange="location.href='?event_id=' + this.value">
-    {% for e in events %}<option value="{{ e.id }}" {% if e.id == selected %}selected{% endif %}>{{ e.name }} · {{ e.starts_at|pretty }}</option>{% endfor %}
+    {% for e in events %}
+    <option value="{{ e.id }}" {% if e.id == selected %}selected{% endif %}>
+      {{ e.name }} · {{ e.starts_at|pretty }}
+    </option>
+    {% endfor %}
   </select>
-  <p id="counts" class="muted">Checked in {{ stats.attended }} of {{ stats.sold }} paid tickets</p>
-  <label>Ticket code</label>
-  <div class="inline"><div><input id="code" autofocus autocomplete="off" placeholder="Type or scan the ticket code, then press Enter"></div><button id="go" type="button">Check in</button></div>
+
+  <p id="counts" class="muted">
+    Checked in {{ stats.attended }} of {{ stats.sold }} paid tickets
+  </p>
+
+  <label for="code">Ticket code</label>
+  <div class="inline">
+    <div>
+      <input
+        id="code"
+        autofocus
+        autocomplete="off"
+        placeholder="Type or scan the ticket code, then press Enter"
+      >
+    </div>
+    <button id="go" type="button">Check in</button>
+  </div>
+
   <div id="result">Waiting for a ticket</div>
-  <button id="scan" type="button" class="secondary">Scan QR with camera</button>
+
+  <button id="scan" type="button" class="secondary">
+    Scan QR with camera
+  </button>
+
   <div id="reader"></div>
 </div>
+
 <div class="card">
   <h2>Is this person a member?</h2>
-  <input id="lookup" placeholder="Name, email or member code" autocomplete="off">
+
+  <input
+    id="lookup"
+    placeholder="Name, email or member code"
+    autocomplete="off"
+  >
+
   <div id="members"></div>
 </div>
+
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
 <script>
-const eventSel = document.getElementById('event'), codeInput = document.getElementById('code'), box = document.getElementById('result');
-let lastCode = '', lastAt = 0;
-function show(cls, html) { box.className = cls; box.innerHTML = html; }
-async function submitCode(raw) {
-  const code = raw.trim().toUpperCase(); if (!code) return;
-  const fd = new FormData(); fd.append('code', code); fd.append('event_id', eventSel.value);
-  const r = await fetch('{{ url_for("checkin") }}', {method: 'POST', body: fd});
-  const j = await r.json();
-  const name = j.name ? '<strong>' + j.name.replace(/</g, '&lt;') + '</strong><br>' : '';
-  if (j.status === 'ok') {
-    show('ok', name + 'Welcome in!' + (j.member ? '<br>Member ✓' : '<br>Not a member'));
-    document.getElementById('counts').textContent = 'Checked in ' + j.stats.attended + ' of ' + j.stats.sold + ' paid tickets';
-  } else if (j.status === 'used') show('warn', name + j.message);
-  else show('bad', name + j.message);
-  codeInput.value = ''; codeInput.focus();
+const eventSel = document.getElementById('event');
+const codeInput = document.getElementById('code');
+const box = document.getElementById('result');
+const csrfInput = document.querySelector('input[name="csrf_token"]');
+
+let lastCode = '';
+let lastAt = 0;
+let submitting = false;
+let scanner = null;
+
+function show(cls, html) {
+  box.className = cls;
+  box.innerHTML = html;
 }
-codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitCode(codeInput.value); });
-document.getElementById('go').onclick = () => submitCode(codeInput.value);
-document.getElementById('scan').onclick = () => {
-  if (!window.Html5Qrcode) { show('warn', 'Camera scanner could not load. Type the code instead.'); return; }
-  const scanner = new Html5Qrcode('reader');
-  scanner.start({facingMode: 'environment'}, {fps: 10, qrbox: 220}, text => {
-    if (text !== lastCode || Date.now() - lastAt > 3000) { lastCode = text; lastAt = Date.now(); submitCode(text); }
-  }).catch(() => show('warn', 'Could not open the camera. Type the code instead.'));
-};
-const lookup = document.getElementById('lookup'), list = document.getElementById('members');
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+async function submitCode(raw) {
+  const code = String(raw ?? '').trim().toUpperCase();
+
+  if (!code || submitting) return;
+
+  submitting = true;
+
+  const fd = new FormData();
+  fd.append('code', code);
+  fd.append('event_id', eventSel.value);
+
+  const csrfToken = csrfInput?.value;
+
+  try {
+    const headers = {};
+
+    if (csrfToken) {
+      headers['X-CSRFToken'] = csrfToken;
+    }
+
+    const response = await fetch('{{ url_for("checkin") }}', {
+      method: 'POST',
+      headers: headers,
+      body: fd
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+
+    // Flask may return an HTML error page instead of JSON.
+    if (!contentType.includes('application/json')) {
+      const errorText = await response.text();
+
+      console.error(
+        'Check-in returned non-JSON response:',
+        response.status,
+        errorText
+      );
+
+      if (response.status === 400) {
+        show(
+          'bad',
+          'Request rejected (HTTP 400). Check the Flask terminal for a CSRF or request validation error.'
+        );
+      } else if (response.status === 403) {
+        show(
+          'bad',
+          'Access denied. Check your staff login and permissions.'
+        );
+      } else {
+        show(
+          'bad',
+          'Check-in failed (HTTP ' + response.status +
+          '). Check the Flask terminal for details.'
+        );
+      }
+
+      return;
+    }
+
+    const j = await response.json();
+
+    if (!response.ok) {
+      console.error('Check-in HTTP error:', response.status, j);
+      show('bad', escapeHtml(j.message || 'Check-in request failed.'));
+      return;
+    }
+
+    const name = j.name
+      ? '<strong>' + escapeHtml(j.name) + '</strong><br>'
+      : '';
+
+    if (j.status === 'ok') {
+      show(
+        'ok',
+        name + 'Welcome in!' +
+        (j.member ? '<br>Member ✓' : '<br>Not a member')
+      );
+
+      if (j.stats) {
+        document.getElementById('counts').textContent =
+          'Checked in ' + j.stats.attended +
+          ' of ' + j.stats.sold + ' paid tickets';
+      }
+    } else if (j.status === 'used') {
+      show('warn', name + escapeHtml(j.message || 'Ticket already used.'));
+    } else {
+      show('bad', name + escapeHtml(j.message || 'Check-in failed.'));
+    }
+
+  } catch (error) {
+    console.error('Check-in error:', error);
+
+    show(
+      'bad',
+      'Could not complete check-in. Check your connection and browser console.'
+    );
+  } finally {
+    submitting = false;
+    codeInput.value = '';
+    codeInput.focus();
+  }
+}
+
+// Manual entry: press Enter.
+codeInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    submitCode(codeInput.value);
+  }
+});
+
+// Manual entry: click Check in.
+document.getElementById('go').addEventListener('click', () => {
+  submitCode(codeInput.value);
+});
+
+// Camera QR scanning.
+document.getElementById('scan').addEventListener('click', async () => {
+  if (!window.Html5Qrcode) {
+    show('warn', 'Camera scanner could not load. Type the ticket code instead.');
+    return;
+  }
+
+  try {
+    if (!scanner) {
+      scanner = new Html5Qrcode('reader');
+    }
+
+    const state = scanner.getState();
+
+    // Avoid starting the same scanner more than once.
+    if (state === 2) {
+      return;
+    }
+
+    show('muted', 'Opening camera. Point it at the ticket QR code.');
+
+    await scanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: 220 },
+      async text => {
+        const now = Date.now();
+
+        // Prevent repeated scans of the same QR code.
+        if (text === lastCode && now - lastAt < 3000) {
+          return;
+        }
+
+        lastCode = text;
+        lastAt = now;
+
+        // Pause scanning while this ticket is checked.
+        try {
+          await scanner.pause(true);
+        } catch (error) {
+          console.warn('Could not pause scanner:', error);
+        }
+
+        await submitCode(text);
+
+        // Resume scanning for the next ticket.
+        try {
+          await scanner.resume();
+        } catch (error) {
+          console.warn('Could not resume scanner:', error);
+        }
+      }
+    );
+
+    show('muted', 'Camera ready. Scan a ticket QR code.');
+
+  } catch (error) {
+    console.error('Camera scanner error:', error);
+
+    show(
+      'warn',
+      'Could not open the camera. Allow camera permission or type the ticket code instead.'
+    );
+  }
+});
+
+// Member search.
+const lookup = document.getElementById('lookup');
+const memberList = document.getElementById('members');
+
 lookup.addEventListener('input', async () => {
-  const r = await fetch('{{ url_for("api_member_search") }}?q=' + encodeURIComponent(lookup.value));
-  const rows = await r.json();
-  list.innerHTML = rows.map(m => '<div class="item"><span>' + m.name.replace(/</g, '&lt;') + ' <span class="muted">' + m.code + ' · ' + m.tier + '</span></span><span class="badge ' +
-    (m.status === 'active' ? 'ok' : (m.status === 'pending' ? 'warn' : 'bad')) + '">' + m.status + (m.expires_on ? ' · ' + m.expires_on : '') + '</span></div>').join('');
+  const query = lookup.value.trim();
+
+  try {
+    const response = await fetch(
+      '{{ url_for("api_member_search") }}?q=' + encodeURIComponent(query)
+    );
+
+    if (!response.ok) {
+      throw new Error('Member search failed: HTTP ' + response.status);
+    }
+
+    const rows = await response.json();
+
+    memberList.innerHTML = rows.map(member => {
+      const statusClass =
+        member.status === 'active' ? 'ok' :
+        member.status === 'pending' ? 'warn' : 'bad';
+
+      return `
+        <div class="item">
+          <span>
+            ${escapeHtml(member.name)}
+            <span class="muted">
+              ${escapeHtml(member.code)} · ${escapeHtml(member.tier)}
+            </span>
+          </span>
+          <span class="badge ${statusClass}">
+            ${escapeHtml(member.status)}
+            ${member.expires_on
+              ? ' · ' + escapeHtml(member.expires_on)
+              : ''}
+          </span>
+        </div>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error('Member search error:', error);
+    memberList.textContent = 'Could not load members. Please try again.';
+  }
 });
 </script>
+
 {% endif %}
 {% endblock %}

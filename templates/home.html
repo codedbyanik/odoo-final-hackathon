@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Skyline — Find your people, make your moment{% endblock %}
 {% block content %}
+
 <section class="festival-hero">
   <div class="festival-photo" role="img" aria-label="Students enjoying a campus festival"></div>
   <div class="festival-shade"></div>
@@ -25,42 +26,116 @@
 
 <section class="section-block">
   <div class="section-heading">
-    <div><div class="eyebrow"><span class="eyebrow-line"></span> SAVE YOUR SPOT</div><h2>Coming up on campus<span class="heading-pop">.</span></h2><p class="section-intro">Your calendar called. It wants better plans.</p></div>
+    <div>
+      <div class="eyebrow"><span class="eyebrow-line"></span> SAVE YOUR SPOT</div>
+      <h2>Coming up on campus<span class="heading-pop">.</span></h2>
+      <p class="section-intro">Your calendar called. It wants better plans.</p>
+    </div>
     <a class="btn btn-secondary" href="{{ url_for('events') }}">Explore all events <span>↗</span></a>
   </div>
+
   <div class="event-grid festival-event-grid">
     {% for e in events %}
     <article class="event-card festival-event-card">
-      <div class="event-art event-art-{{ loop.index }}"><span class="event-art-caption">SKYLINE / LIVE</span><span class="event-number">{{ '%02d'|format(loop.index) }}</span><span class="event-art-symbol">{% if loop.index == 1 %}✳{% elif loop.index == 2 %}◒{% else %}✦{% endif %}</span><span class="art-bottom-label">MAKE IT A MOMENT</span></div>
+
+      <a href="{{ url_for('event_detail', event_id=e.id) }}"
+         class="event-art event-art-{{ loop.index }}"
+         style="display:block; position:relative; overflow:hidden;">
+
+        {% if e.thumbnail_filename %}
+          <img
+            src="{{ url_for('static', filename='uploads/events/' ~ e.thumbnail_filename) }}"
+            alt="{{ e.name }}"
+            style="width:100%; height:100%; min-height:230px; object-fit:cover; display:block;"
+          >
+        {% else %}
+          <div class="event-art-placeholder"
+               style="width:100%; height:100%; min-height:230px;"></div>
+        {% endif %}
+
+        <span class="event-art-caption"
+              style="position:absolute; top:16px; left:16px;">SKYLINE / LIVE</span>
+
+        <span class="event-number"
+              style="position:absolute; top:16px; right:16px;">{{ '%02d'|format(loop.index) }}</span>
+
+        <span class="art-bottom-label"
+              style="position:absolute; bottom:16px; left:16px;">MAKE IT A MOMENT</span>
+      </a>
+
       <div class="event-card-body">
-        <div class="event-meta"><span class="event-date">{{ e.starts_at|pretty }}</span><span class="availability"><i></i>{{ e.seats_left }} spots left</span></div>
-        <h3><a href="{{ url_for('event_detail', event_id=e.id) }}">{{ e.name }}</a></h3>
-        <div class="event-card-foot"><span class="muted">Campus community event</span><a class="circle-arrow" href="{{ url_for('event_detail', event_id=e.id) }}" aria-label="View {{ e.name }}">↗</a></div>
+        <div class="event-meta">
+          <span class="event-date">{{ e.starts_at|pretty }}</span>
+          <span class="availability"><i></i>{{ e.seats_left }} spots left</span>
+        </div>
+
+        <h3>
+          <a href="{{ url_for('event_detail', event_id=e.id) }}">{{ e.name }}</a>
+        </h3>
+
+        <div class="event-card-foot">
+          <span class="muted">
+            {% if e.venue %}{{ e.venue }}{% else %}Campus community event{% endif %}
+          </span>
+          <a class="circle-arrow"
+             href="{{ url_for('event_detail', event_id=e.id) }}"
+             aria-label="View {{ e.name }}">↗</a>
+        </div>
       </div>
     </article>
     {% else %}
-    <div class="empty-state"><span class="empty-symbol">✳</span><h3>The next big thing is brewing.</h3><p>No upcoming events just yet. Check back soon.</p></div>
+    <div class="empty-state">
+      <span class="empty-symbol">✳</span>
+      <h3>The next big thing is brewing.</h3>
+      <p>No upcoming events just yet. Check back soon.</p>
+    </div>
     {% endfor %}
   </div>
 </section>
 
 <section class="community-panel festival-community">
   <div class="community-mark" aria-hidden="true"><span>✳</span><i></i><b></b></div>
-  <div class="community-copy"><div class="eyebrow eyebrow-light"><span class="eyebrow-line"></span> YOUR PEOPLE ARE HERE</div><h2>Less scrolling.<br>More <em>living.</em></h2><p>From first meetings to all-night celebrations, find a community that makes campus feel like yours.</p></div>
-  <div class="community-action"><a class="btn btn-lime" href="{{ url_for('join') }}">Find your people <span>↗</span></a><span>New faces always welcome.</span></div>
+  <div class="community-copy">
+    <div class="eyebrow eyebrow-light"><span class="eyebrow-line"></span> YOUR PEOPLE ARE HERE</div>
+    <h2>Less scrolling.<br>More <em>living.</em></h2>
+    <p>From first meetings to all-night celebrations, find a community that makes campus feel like yours.</p>
+  </div>
+  <div class="community-action">
+    <a class="btn btn-lime" href="{{ url_for('join') }}">Find your people <span>↗</span></a>
+    <span>New faces always welcome.</span>
+  </div>
 </section>
 
 <section class="section-block news-section">
   <div class="section-heading">
-    <div><div class="eyebrow"><span class="eyebrow-line"></span> CAMPUS SIGNAL</div><h2>Word on the quad<span class="heading-pop">.</span></h2><p class="section-intro">Fresh updates from the people making things happen.</p></div>
+    <div>
+      <div class="eyebrow"><span class="eyebrow-line"></span> CAMPUS SIGNAL</div>
+      <h2>Word on the quad<span class="heading-pop">.</span></h2>
+      <p class="section-intro">Fresh updates from the people making things happen.</p>
+    </div>
     <a class="text-link" href="{{ url_for('announcements') }}">All announcements <span>→</span></a>
   </div>
+
   <div class="news-list">
     {% for p in posts %}
-    <article class="news-item"><div class="news-date"><span>{{ p.created_at|pretty }}</span><b>↗</b></div><div class="news-content"><h3>{{ p.title }}</h3><p>{{ p.body[:180] }}{% if p.body|length > 180 %}…{% endif %}</p></div><span class="news-index">{{ '%02d'|format(loop.index) }}</span></article>
+    <article class="news-item">
+      <div class="news-date"><span>{{ p.created_at|pretty }}</span><b>↗</b></div>
+      <div class="news-content">
+        <h3>{{ p.title }}</h3>
+        <p>{{ p.body[:180] }}{% if p.body|length > 180 %}…{% endif %}</p>
+      </div>
+      <span class="news-index">{{ '%02d'|format(loop.index) }}</span>
+    </article>
     {% else %}
-    <div class="empty-news"><span>✳</span><div><strong>Quiet for now, but not for long.</strong><p>Announcements from the team will show up here.</p></div></div>
+    <div class="empty-news">
+      <span>✳</span>
+      <div>
+        <strong>Quiet for now, but not for long.</strong>
+        <p>Announcements from the team will show up here.</p>
+      </div>
+    </div>
     {% endfor %}
   </div>
 </section>
+
 {% endblock %}
