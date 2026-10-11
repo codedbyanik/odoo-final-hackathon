@@ -929,6 +929,9 @@ def tickets_page(batch):
         (customer_id,),
         one=True
     )
+    print("DEBUG customer_id:", customer_id)
+    print("DEBUG customer email:", customer['email'] if customer else None)
+    print("DEBUG ticket emails:", [ticket['email'] for ticket in rows])
 
     if not customer:
         session.pop('customer_id', None)
@@ -1202,6 +1205,38 @@ def admin_member_add():
         flash(f'{name} added and marked as paid.')
     else:
         flash(f'{name} added. Dues are still unpaid.')
+    return redirect(url_for('admin_members'))
+
+
+@app.post('/admin/members/<int:member_id>/delete')
+@admin_required
+def admin_member_delete(member_id):
+    member = query(
+        'SELECT id, name FROM members WHERE id = ?',
+        (member_id,),
+        one=True
+    )
+
+    if not member:
+        flash('Member not found.', 'error')
+        return redirect(url_for('admin_members'))
+
+    # Preserve historical records that reference the member.
+    referenced = query(
+        'SELECT 1 FROM claims WHERE member_id = ? LIMIT 1',
+        (member_id,),
+        one=True
+    )
+
+    if referenced:
+        flash(
+            'This member has claim history. Deactivate or retain the record instead.',
+            'error'
+        )
+        return redirect(url_for('admin_members'))
+
+    execute('DELETE FROM members WHERE id = ?', (member_id,))
+    flash(f"Member {member['name']} deleted.", 'success')
     return redirect(url_for('admin_members'))
 
 
@@ -1882,6 +1917,66 @@ def import_staff_csv():
             print(f'Created {email} ({role})')
 
     print(f'Import complete. Created {created} staff account(s).')
+
+
+@app.route('/admin/staff', methods=['GET', 'POST'])
+@admin_required
+def admin_staff():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+        role = request.form.get('role', 'committee').strip().lower()
+
+        if not email or '@' not in email or len(password) < 8:
+            flash('Enter a valid email and a password of at least 8 characters.', 'error')
+            return redirect(url_for('admin_staff'))
+
+        if role not in ('committee', 'admin'):
+            flash('Invalid staff role.', 'error')
+            return redirect(url_for('admin_staff'))
+
+        if query('SELECT id FROM committee_users WHERE LOWER(email) = ?', (email,), one=True):
+            flash('An account with this email already exists.', 'error')
+            return redirect(url_for('admin_staff'))
+
+        execute(
+            '''INSERT INTO committee_users (email, password_hash, role, active)
+               VALUES (?, ?, ?, 1)''',
+            (email, generate_password_hash(password), role)
+        )
+        flash('Staff account created.', 'success')
+        return redirect(url_for('admin_staff'))
+
+    staff = query(
+        '''SELECT id, email, role, active, created_at
+           FROM committee_users ORDER BY id DESC'''
+    )
+    return render_template('admin_staff.html', staff=staff)
+
+
+@app.post('/admin/staff/<int:staff_id>/toggle')
+@admin_required
+def admin_staff_toggle(staff_id):
+    person = query(
+        'SELECT id, email, active FROM committee_users WHERE id = ?',
+        (staff_id,), one=True
+    )
+
+    if not person:
+        flash('Staff account not found.', 'error')
+        return redirect(url_for('admin_staff'))
+
+    new_status = 0 if person['active'] else 1
+    execute(
+        'UPDATE committee_users SET active = ? WHERE id = ?',
+        (new_status, staff_id)
+    )
+    flash(
+        'Staff account deactivated.' if not new_status else 'Staff account activated.',
+        'success'
+    )
+    return redirect(url_for('admin_staff'))
+
 
 @app.route('/member-login', methods=['GET', 'POST'])
 def member_login():

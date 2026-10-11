@@ -1,31 +1,305 @@
+
 {% extends 'base.html' %}
+{% block title %}Member Management | Skyline Club{% endblock %}
+
 {% block content %}
-<h1>Members</h1>
-<form method="post" action="{{ url_for('admin_member_add') }}" class="card">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <h2>Add a member (sign-up table)</h2>
-  <div class="inline">
-    <div><label>Name</label><input name="name" required></div>
-    <div><label>Email</label><input name="email" type="email" required></div>
-    <div><label>Phone</label><input name="phone"></div>
-    <div><label>Tier</label><select name="tier_id">{% for t in tiers %}<option value="{{ t.id }}">{{ t.name }} ({{ t.price|money }})</option>{% endfor %}</select></div>
-    <div><label style="font-weight:400"><input type="checkbox" name="paid_cash" value="1"> Paid cash now</label></div>
-    <button type="submit">Add</button>
-  </div>
-</form>
-<form method="get" class="inline" style="margin-bottom:12px"><div><input name="q" value="{{ q }}" placeholder="Search name, email or code"></div><button type="submit">Search</button></form>
-<div class="table-wrap"><table>
-  <tr><th>Code</th><th>Name</th><th>Email</th><th>Tier</th><th>Status</th><th>Valid until</th><th></th></tr>
-  {% for m in members %}{% set s = status_of(m) %}
-  <tr><td>{{ m.code }}</td><td>{{ m.name }}</td><td>{{ m.email }}</td><td>{{ m.tier_name }}</td>
-    <td><span class="badge {{ 'ok' if s == 'active' else ('warn' if s == 'pending' else 'bad') }}">{{ s }}</span></td>
-    <td>{{ m.expires_on|pretty }}</td>
-    <td class="row">
-      {% if s != 'active' %}<form method="post" action="{{ url_for('admin_member_pay', member_id=m.id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small">Mark paid (cash)</button></form>{% endif %}
-      <form method="post" action="{{ url_for('admin_member_remind', member_id=m.id) }}">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="small secondary">Send reminder</button></form>
-    </td></tr>
-  {% else %}<tr><td colspan="7" class="muted">No members found.</td></tr>{% endfor %}
-</table></div>
+<style>
+.member-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 0 40px;
+}
+
+.member-page *,
+.member-page *::before,
+.member-page *::after {
+    box-sizing: border-box;
+}
+
+.member-page h1 {
+    margin-bottom: 22px;
+}
+
+.member-card {
+    padding: 22px;
+    margin-bottom: 22px;
+}
+
+.member-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 16px;
+    align-items: end;
+}
+
+.member-page label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 700;
+}
+
+.member-page input:not([type="checkbox"]),
+.member-page select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 11px;
+}
+
+.member-page .cash-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+}
+
+.member-page .cash-option label {
+    margin: 0;
+    font-weight: 500;
+}
+
+.member-search {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    margin: 0 0 16px;
+}
+
+.member-search input {
+    width: min(420px, 100%);
+}
+
+.member-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.member-table {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: collapse;
+}
+
+.member-table th,
+.member-table td {
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+    overflow-wrap: anywhere;
+}
+
+.member-table th {
+    background: var(--lime, #d7f36a);
+    color: #171717;
+}
+
+.member-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.member-actions form {
+    margin: 0;
+}
+
+.member-actions button {
+    white-space: nowrap;
+}
+
+.member-delete-button {
+    background: #b42332 !important;
+    color: #fff !important;
+    border: 2px solid #8d1523 !important;
+}
+
+.member-delete-button:hover {
+    background: #8d1523 !important;
+}
+
+.member-delete-note {
+    color: var(--muted, #747e8e);
+    font-size: .85rem;
+    margin-top: 12px;
+}
+
+html[data-theme="dark"] .member-card {
+    background: #151e2e;
+    color: #e5eaf3;
+    border-color: #35435a;
+}
+
+html[data-theme="dark"] .member-page input:not([type="checkbox"]),
+html[data-theme="dark"] .member-page select {
+    background: #0e1726;
+    color: #f1f5f9;
+    border-color: #52627a;
+}
+
+html[data-theme="dark"] .member-page .muted,
+html[data-theme="dark"] .member-delete-note {
+    color: #b9c5d7;
+}
+
+@media (max-width: 850px) {
+    .member-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 550px) {
+    .member-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .member-search {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .member-search input {
+        width: 100%;
+    }
+
+    .member-card {
+        padding: 15px;
+    }
+}
+</style>
+
+<div class="member-page">
+    <h1>Member Management</h1>
+
+    <form method="post"
+          action="{{ url_for('admin_member_add') }}"
+          class="card member-card">
+
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <h2>Add a Member</h2>
+        <p class="muted">Create a member record in the sign-up table.</p>
+
+        <div class="member-form-grid">
+            <div>
+                <label for="member-name">Name</label>
+                <input id="member-name" name="name" required>
+            </div>
+
+            <div>
+                <label for="member-email">Email</label>
+                <input id="member-email" name="email" type="email" required>
+            </div>
+
+            <div>
+                <label for="member-phone">Phone</label>
+                <input id="member-phone" name="phone">
+            </div>
+
+            <div>
+                <label for="member-tier">Membership tier</label>
+                <select id="member-tier" name="tier_id" required>
+                    {% for t in tiers %}
+                    <option value="{{ t.id }}">
+                        {{ t.name }} ({{ t.price|money }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="cash-option">
+                <input id="paid-cash" type="checkbox" name="paid_cash" value="1">
+                <label for="paid-cash">Paid cash now</label>
+            </div>
+
+            <div>
+                <button type="submit">Add Member</button>
+            </div>
+        </div>
+    </form>
+
+    <form method="get" class="member-search">
+        <div>
+            <label for="member-search-input">Search members</label>
+            <input id="member-search-input"
+                   name="q"
+                   value="{{ q }}"
+                   placeholder="Name, email or member code">
+        </div>
+        <button type="submit">Search</button>
+        {% if q %}
+        <a class="btn secondary" href="{{ url_for('admin_members') }}">Clear</a>
+        {% endif %}
+    </form>
+
+    <div class="card member-table-wrap">
+        <table class="member-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Tier</th>
+                    <th>Status</th>
+                    <th>Valid until</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for m in members %}
+                {% set s = status_of(m) %}
+                <tr>
+                    <td>{{ m.code }}</td>
+                    <td>{{ m.name }}</td>
+                    <td>{{ m.email }}</td>
+                    <td>{{ m.tier_name }}</td>
+                    <td>
+                        <span class="badge {{ 'ok' if s == 'active' else ('warn' if s == 'pending' else 'bad') }}">
+                            {{ s }}
+                        </span>
+                    </td>
+                    <td>{{ m.expires_on|pretty }}</td>
+
+                    <td>
+                        <div class="member-actions">
+                            {% if s != 'active' %}
+                            <form method="post"
+                                  action="{{ url_for('admin_member_pay', member_id=m.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="small">Mark paid</button>
+                            </form>
+                            {% endif %}
+
+                            <form method="post"
+                                  action="{{ url_for('admin_member_remind', member_id=m.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="small secondary">Send reminder</button>
+                            </form>
+
+                            <form method="post"
+                                  action="{{ url_for('admin_member_delete', member_id=m.id) }}"
+                                  onsubmit="return confirm('Delete member {{ m.code }} — {{ m.name }}? This may permanently remove their record. Continue only if you are sure.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="small member-delete-button">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="muted">No members found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <p class="member-delete-note">
+        Delete requires the corresponding protected admin route in app.py.
+        If a member has linked records, preserve their history rather than forcing deletion.
+    </p>
+</div>
 {% endblock %}

@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101b31">
+  <meta name="theme-color" content="#f7f3e8">
 
   <title>{% block title %}Skyline Student Association{% endblock %}</title>
 
@@ -23,6 +23,7 @@
 </head>
 
 <body>
+
 <header class="topbar">
   <div class="container bar">
 
@@ -45,7 +46,6 @@
 
     <div class="nav-actions">
 
-      <!-- Theme toggle -->
       <button
         type="button"
         id="theme-toggle"
@@ -56,7 +56,6 @@
         <span id="theme-label">Dark</span>
       </button>
 
-      <!-- Admin, member, customer and committee navigation -->
       {% if is_admin %}
 
         <form action="{{ url_for('logout') }}" method="POST">
@@ -120,7 +119,6 @@
 
       {% endif %}
 
-      <!-- Join the club -->
       <a class="btn btn-nav" href="{{ url_for('join') }}">
         Join the club <span aria-hidden="true">↗</span>
       </a>
@@ -129,7 +127,6 @@
   </div>
 </header>
 
-<!-- Admin workspace navigation -->
 {% if is_admin %}
 <div class="admin-shell">
   <div class="container adminbar" aria-label="Committee navigation">
@@ -155,7 +152,6 @@
 
 <main class="container page-content">
 
-  <!-- Flask flash messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
       <div class="flash {{ category }}">
@@ -171,7 +167,6 @@
 
 </main>
 
-<!-- Toast notifications -->
 <div
   id="toast-container"
   class="toast-container"
@@ -179,35 +174,10 @@
   aria-atomic="false">
 </div>
 
-<!-- Footer -->
-<footer class="site-footer">
-  <div class="container footer-inner">
-
-    <a class="brand footer-brand"
-       href="{{ url_for('home') }}">
-      <span class="brand-mark">S</span>
-      <span class="brand-copy">
-        <strong>skyline</strong>
-        <small>STUDENT ASSOCIATION</small>
-      </span>
-    </a>
-
-    <p>Made for campus life. Built for everyone.</p>
-
-    <span class="footer-copy">
-      © Skyline Student Association
-    </span>
-
-  </div>
-</footer>
-
-<script
-  src="{{ url_for('static', filename='script.js') }}"
-  defer>
-</script>
-
 <footer class="skyline-footer">
+
   <div class="footer-inner">
+
     <div class="footer-brand">
       <h2>SKYLINE<span>✳</span></h2>
       <p>Your campus. Your people. Your moments.</p>
@@ -218,13 +188,17 @@
       <p>Stay connected with Skyline Club.</p>
 
       <div class="footer-social-links">
-        <a href="https://www.instagram.com/YOUR_INSTAGRAM/"
-           target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://www.instagram.com/YOUR_INSTAGRAM/"
+          target="_blank"
+          rel="noopener noreferrer">
           Instagram ↗
         </a>
 
-        <a href="https://www.facebook.com/YOUR_FACEBOOK/"
-           target="_blank" rel="noopener noreferrer">
+        <a
+          href="https://www.facebook.com/YOUR_FACEBOOK/"
+          target="_blank"
+          rel="noopener noreferrer">
           Facebook ↗
         </a>
       </div>
@@ -238,13 +212,20 @@
         ☎ Admin: +91 12345 67891
       </a>
     </div>
+
   </div>
 
   <div class="footer-bottom">
     <span>© 2026 Skyline Student Association</span>
     <span>MEET · MAKE · BELONG</span>
   </div>
+
 </footer>
+
+<script
+  src="{{ url_for('static', filename='script.js') }}"
+  defer>
+</script>
 
 </body>
 </html>

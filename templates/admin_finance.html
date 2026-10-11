@@ -1,43 +1,550 @@
+
 {% extends 'base.html' %}
+{% block title %}Treasurer Dashboard | Skyline Club{% endblock %}
+
 {% block content %}
-<h1>Treasurer: where the money went</h1>
-<form method="get" class="inline card">
-  <div><label>From</label><input type="date" name="start" value="{{ start }}"></div>
-  <div><label>To</label><input type="date" name="end" value="{{ end }}"></div>
-  <div><label>Category</label><select name="category"><option value="">All</option>{% for c in categories %}<option {% if c == category %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
-  <button type="submit">Filter</button>
-  <a class="btn secondary" style="color:#1f2937" href="{{ url_for('admin_finance_csv', start=start, end=end, category=category) }}">Download CSV</a>
-</form>
-<div class="grid3">
-  <div class="card"><div class="stat pos">{{ income|money }}</div>Money in</div>
-  <div class="card"><div class="stat neg">{{ expense|money }}</div>Money out</div>
-  <div class="card"><div class="stat {{ 'pos' if income - expense >= 0 else 'neg' }}">{{ (income - expense)|money }}</div>Money left</div>
+<style>
+.finance-page {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 0 40px;
+    color: var(--ink, #17243b);
+}
+
+.finance-page *,
+.finance-page *::before,
+.finance-page *::after {
+    box-sizing: border-box;
+}
+
+.finance-page h1 {
+    margin: 0 0 24px;
+    font-size: clamp(1.7rem, 3vw, 2.5rem);
+    line-height: 1.3;
+}
+
+.finance-page h2 {
+    margin: 0 0 18px;
+    font-size: 1.2rem;
+    line-height: 1.4;
+}
+
+.finance-card {
+    min-width: 0;
+    padding: 20px;
+    background: var(--white, #fff);
+    border: 1px solid var(--line, #e4e7e9);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(20, 30, 50, .06);
+}
+
+.finance-field {
+    min-width: 0;
+    width: 100%;
+}
+
+.finance-field label {
+    display: block;
+    margin-bottom: 7px;
+    font-size: .85rem;
+    font-weight: 750;
+    line-height: 1.4;
+}
+
+.finance-page input,
+.finance-page select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--line, #d5dbe4);
+    border-radius: 7px;
+    background: var(--white, #fff);
+    color: var(--ink, #17243b);
+    font: inherit;
+}
+
+.finance-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 2px solid #171717;
+    border-radius: 7px;
+    background: #d7f36a;
+    color: #171717 !important;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.finance-action:hover {
+    filter: brightness(.95);
+}
+
+/* FILTER BAR: one row on desktop */
+.finance-page form.finance-filter {
+    display: grid !important;
+    grid-template-columns:
+        minmax(120px, 1fr)
+        minmax(120px, 1fr)
+        minmax(120px, 1fr)
+        auto auto !important;
+    align-items: end !important;
+    gap: 12px !important;
+    width: 100%;
+    margin: 0 0 20px;
+    padding: 16px;
+}
+
+.finance-page form.finance-filter > div {
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+.finance-page form.finance-filter > button,
+.finance-page form.finance-filter > a {
+    width: auto !important;
+    align-self: end !important;
+    white-space: nowrap !important;
+}
+
+/* Summary cards */
+.finance-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.finance-stat {
+    margin-bottom: 7px;
+    font-size: clamp(1.35rem, 2.5vw, 2rem);
+    line-height: 1.3;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.finance-label {
+    color: var(--muted, #747e8e);
+    font-size: .9rem;
+    font-weight: 650;
+}
+
+.finance-positive { color: #16804a !important; }
+.finance-negative { color: #d23b4b !important; }
+
+/* Income and expense breakdowns */
+.finance-breakdowns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 20px;
+}
+
+.finance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    margin-top: 17px;
+    font-size: .92rem;
+}
+
+.finance-item span:first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.finance-item span:last-child {
+    flex-shrink: 0;
+    font-weight: 750;
+    text-align: right;
+}
+
+.finance-bar-track {
+    width: 100%;
+    height: 9px;
+    margin-top: 8px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: #e8ebef;
+}
+
+.finance-bar-fill {
+    height: 100%;
+    border-radius: inherit;
+}
+
+.finance-bar-green { background: #19965a; }
+.finance-bar-red { background: #df4657; }
+
+
+.finance-page .finance-manual-fields {
+    display: grid !important;
+    grid-template-columns:
+        minmax(110px, 0.8fr)
+        minmax(140px, 1fr)
+        minmax(135px, 1fr)
+        minmax(160px, 1.1fr)
+        minmax(220px, 1.6fr)
+        auto !important;
+    align-items: end !important;
+    gap: 14px !important;
+    width: 100%;
+}
+
+.finance-manual-fields > div {
+    min-width: 0;
+    width: auto;
+}
+
+.finance-manual-fields input,
+.finance-manual-fields select {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+}
+
+.finance-manual-fields > button {
+    width: auto;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.finance-manual {
+    padding: 24px;
+    overflow: visible;
+}
+
+.finance-manual h2 {
+    margin: 0 0 22px;
+    line-height: 1.4;
+}
+
+@media (max-width: 1000px) {
+    .finance-page .finance-manual-fields {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 650px) {
+    .finance-page .finance-manual-fields {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+
+/* Transactions table */
+.finance-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--line, #e4e7e9);
+    border-radius: 10px;
+    background: var(--white, #fff);
+}
+
+.finance-table {
+    width: 100%;
+    min-width: 650px;
+    border-collapse: collapse;
+    font-size: .92rem;
+}
+
+.finance-table th {
+    padding: 14px 16px;
+    background: #d7f36a;
+    color: #171717;
+    text-align: left;
+    font-size: .8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.finance-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--line, #e4e7e9);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
+
+.finance-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.finance-table tbody tr:hover {
+    background: rgba(120, 130, 150, .08);
+}
+
+.finance-empty {
+    color: var(--muted, #747e8e);
+    padding: 20px !important;
+}
+
+/* Dark mode */
+html[data-theme="dark"] .finance-page {
+    color: #e5eaf3;
+}
+
+html[data-theme="dark"] .finance-card,
+html[data-theme="dark"] .finance-table-wrap {
+    background: #151e2e !important;
+    color: #e5eaf3 !important;
+    border-color: #35435a !important;
+    box-shadow: none;
+}
+
+html[data-theme="dark"] .finance-page h1,
+html[data-theme="dark"] .finance-page h2 {
+    color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .finance-label,
+html[data-theme="dark"] .finance-empty {
+    color: #b9c5d7 !important;
+}
+
+html[data-theme="dark"] .finance-positive {
+    color: #66dfa0 !important;
+}
+
+html[data-theme="dark"] .finance-negative {
+    color: #ff8490 !important;
+}
+
+html[data-theme="dark"] .finance-page input,
+html[data-theme="dark"] .finance-page select {
+    background: #0e1726 !important;
+    color: #f1f5f9 !important;
+    border-color: #52627a !important;
+}
+
+html[data-theme="dark"] .finance-bar-track {
+    background: #303c50;
+}
+
+html[data-theme="dark"] .finance-table td {
+    color: #e5eaf3;
+    border-bottom-color: #35435a;
+}
+
+html[data-theme="dark"] .finance-table tbody tr:hover {
+    background: #202d42;
+}
+
+html[data-theme="dark"] .finance-action {
+    background: #d7f36a !important;
+    color: #171717 !important;
+    border-color: #d7f36a !important;
+}
+
+/* Tablet screens */
+@media (min-width: 651px) and (max-width: 1000px) {
+    .finance-page form.finance-filter {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    .finance-page .finance-manual-fields {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+/* Mobile screens only */
+@media (max-width: 650px) {
+    .finance-page {
+        padding-top: 12px;
+    }
+
+    .finance-page form.finance-filter,
+    .finance-page .finance-manual-fields {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .finance-summary,
+    .finance-breakdowns {
+        grid-template-columns: 1fr;
+    }
+
+    .finance-page form.finance-filter > button,
+    .finance-page form.finance-filter > a,
+    .finance-manual-fields > button {
+        width: 100% !important;
+    }
+
+    .finance-card {
+        padding: 16px;
+    }
+
+    .finance-item {
+        font-size: .88rem;
+    }
+}
+</style>
+
+<div class="finance-page">
+    <h1>Treasurer: where the money went</h1>
+
+    <form method="get" class="finance-card finance-filter">
+        <div class="finance-field">
+            <label for="finance-start">From</label>
+            <input id="finance-start" type="date" name="start" value="{{ start }}">
+        </div>
+
+        <div class="finance-field">
+            <label for="finance-end">To</label>
+            <input id="finance-end" type="date" name="end" value="{{ end }}">
+        </div>
+
+        <div class="finance-field">
+            <label for="finance-category">Category</label>
+            <select id="finance-category" name="category">
+                <option value="">All</option>
+                {% for c in categories %}
+                <option value="{{ c }}" {% if c == category %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="finance-action">Filter</button>
+
+        <a class="finance-action"
+           href="{{ url_for('admin_finance_csv', start=start, end=end, category=category) }}">
+            Download CSV
+        </a>
+    </form>
+
+    <div class="finance-summary">
+        <div class="finance-card">
+            <div class="finance-stat finance-positive">{{ income|money }}</div>
+            <div class="finance-label">Money in</div>
+        </div>
+
+        <div class="finance-card">
+            <div class="finance-stat finance-negative">{{ expense|money }}</div>
+            <div class="finance-label">Money out</div>
+        </div>
+
+        <div class="finance-card">
+            <div class="finance-stat {{ 'finance-positive' if income - expense >= 0 else 'finance-negative' }}">
+                {{ (income - expense)|money }}
+            </div>
+            <div class="finance-label">Money left</div>
+        </div>
+    </div>
+
+    <div class="finance-breakdowns">
+        <div class="finance-card">
+            <h2>In, by source</h2>
+            {% for cat, amt in breakdown.income|dictsort(by='value')|reverse %}
+            <div class="finance-item">
+                <span>{{ cat|capitalize }}</span>
+                <span>{{ amt|money }}</span>
+            </div>
+            <div class="finance-bar-track">
+                <div class="finance-bar-fill finance-bar-green"
+                     style="width: {{ ((amt * 100 / income) if income else 0)|round }}%"></div>
+            </div>
+            {% else %}
+            <p class="finance-empty">Nothing yet.</p>
+            {% endfor %}
+        </div>
+
+        <div class="finance-card">
+            <h2>Out, by purpose</h2>
+            {% for cat, amt in breakdown.expense|dictsort(by='value')|reverse %}
+            <div class="finance-item">
+                <span>{{ cat|capitalize }}</span>
+                <span>{{ amt|money }}</span>
+            </div>
+            <div class="finance-bar-track">
+                <div class="finance-bar-fill finance-bar-red"
+                     style="width: {{ ((amt * 100 / expense) if expense else 0)|round }}%"></div>
+            </div>
+            {% else %}
+            <p class="finance-empty">Nothing yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <form method="post" action="{{ url_for('admin_finance_add') }}"
+          class="finance-card finance-manual">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <h2>Add a manual entry</h2>
+
+        <div class="finance-manual-fields">
+            <div class="finance-field">
+                <label for="finance-kind">Type</label>
+                <select id="finance-kind" name="kind">
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+
+            <div class="finance-field">
+                <label for="finance-entry-category">Category</label>
+                <select id="finance-entry-category" name="category">
+                    {% for c in income_cats %}
+                    <option>{{ c }}</option>
+                    {% endfor %}
+                    {% for c in expense_cats if c not in income_cats %}
+                    <option>{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="finance-field">
+                <label for="finance-amount">Amount (₹)</label>
+                <input id="finance-amount" name="amount" type="number"
+                       step="0.01" min="0.01" required>
+            </div>
+
+            <div class="finance-field">
+                <label for="finance-date">Date</label>
+                <input id="finance-date" name="date" type="date" value="{{ today }}">
+            </div>
+
+            <div class="finance-field">
+                <label for="finance-description">Description</label>
+                <input id="finance-description" name="description" required>
+            </div>
+
+            <button type="submit" class="finance-action">Add entry</button>
+        </div>
+    </form>
+
+    <div class="finance-table-wrap">
+        <table class="finance-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>{{ r.date|pretty }}</td>
+                    <td>{{ r.category }}</td>
+                    <td>{{ r.description }}</td>
+                    <td class="{{ 'finance-positive' if r.kind == 'income' else 'finance-negative' }}">
+                        {{ '+' if r.kind == 'income' else '-' }}{{ r.amount|money }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="finance-empty">No entries match.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
-<div class="grid2">
-  <div class="card"><h2>In, by source</h2>
-    {% for cat, amt in breakdown.income|dictsort(by='value')|reverse %}<div class="item"><span>{{ cat|capitalize }}</span><span>{{ amt|money }}</span></div>
-    <div class="bar-track"><div class="bar-fill green" style="width:{{ (amt * 100 / income)|round }}%"></div></div>
-    {% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div>
-  <div class="card"><h2>Out, by purpose</h2>
-    {% for cat, amt in breakdown.expense|dictsort(by='value')|reverse %}<div class="item"><span>{{ cat|capitalize }}</span><span>{{ amt|money }}</span></div>
-    <div class="bar-track"><div class="bar-fill red" style="width:{{ (amt * 100 / expense)|round }}%"></div></div>
-    {% else %}<p class="muted">Nothing yet.</p>{% endfor %}</div>
-</div>
-<form method="post" action="{{ url_for('admin_finance_add') }}" class="card">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><h2>Add a manual entry</h2>
-  <div class="inline">
-    <div><label>Type</label><select name="kind"><option value="income">Income</option><option value="expense">Expense</option></select></div>
-    <div><label>Category</label><select name="category">{% for c in income_cats %}<option>{{ c }}</option>{% endfor %}{% for c in expense_cats if c not in income_cats %}<option>{{ c }}</option>{% endfor %}</select></div>
-    <div><label>Amount (₹)</label><input name="amount" type="number" step="0.01" min="0.01" required></div>
-    <div><label>Date</label><input name="date" type="date" value="{{ today }}"></div>
-    <div><label>Description</label><input name="description" required></div>
-    <button type="submit">Add</button>
-  </div>
-</form>
-<div class="table-wrap"><table>
-  <tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr>
-  {% for r in rows %}<tr><td>{{ r.date|pretty }}</td><td>{{ r.category }}</td><td>{{ r.description }}</td>
-    <td class="{{ 'pos' if r.kind == 'income' else 'neg' }}">{{ '+' if r.kind == 'income' else '-' }}{{ r.amount|money }}</td></tr>
-  {% else %}<tr><td colspan="4" class="muted">No entries match.</td></tr>{% endfor %}
-</table></div>
 {% endblock %}

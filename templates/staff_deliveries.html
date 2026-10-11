@@ -1,91 +1,590 @@
-
 {% extends "base.html" %}
-
-{% block title %}My Deliveries | Skyline Club{% endblock %}
+{% block title %}Delivery Management | Skyline Club{% endblock %}
 
 {% block content %}
-<section class="login-page">
-    <h1>Delivery Management</h1>
-    <p>View paid orders and update their delivery progress.</p>
 
-    <p>
-        <a href="{{ url_for('staff_dashboard') }}" class="button">
+<style>
+.delivery-page {
+    --delivery-card: var(--neo-white, #fffdf7);
+    --delivery-text: var(--neo-ink, #171717);
+    --delivery-border: var(--neo-ink, #171717);
+    --delivery-muted: #716f68;
+    color: var(--delivery-text);
+    padding: 12px 0 36px;
+}
+
+.delivery-page * { box-sizing: border-box; }
+
+.delivery-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+
+.delivery-heading h1 {
+    margin: 0 0 8px;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    letter-spacing: -1.5px;
+}
+
+.delivery-heading p {
+    margin: 0;
+    color: var(--delivery-muted);
+}
+
+.delivery-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    background: var(--delivery-card);
+    color: var(--delivery-text);
+    border: 2px solid var(--delivery-border);
+    border-radius: 6px;
+    box-shadow: 3px 3px 0 var(--delivery-border);
+    text-decoration: none;
+    font-weight: 800;
+}
+
+.delivery-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.delivery-stat {
+    min-width: 0;
+    padding: 18px;
+    background: var(--delivery-card);
+    color: var(--delivery-text);
+    border: 2px solid var(--delivery-border);
+    border-radius: 8px;
+    box-shadow: 4px 4px 0 var(--delivery-border);
+}
+
+.delivery-stat span {
+    display: block;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--delivery-muted);
+}
+
+.delivery-stat strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 30px;
+    line-height: 1.1;
+    color: var(--delivery-text);
+}
+
+.delivery-toolbar {
+    display: grid;
+    grid-template-columns: minmax(200px, 1fr) minmax(170px, 240px);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.delivery-toolbar input,
+.delivery-toolbar select,
+.delivery-status-form select {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 10px 12px;
+    background: var(--delivery-card);
+    color: var(--delivery-text);
+    border: 2px solid var(--delivery-border);
+    border-radius: 6px;
+    font: inherit;
+}
+
+.delivery-table-wrap {
+    overflow-x: auto;
+    background: var(--delivery-card);
+    border: 2px solid var(--delivery-border);
+    border-radius: 8px;
+    box-shadow: 5px 5px 0 var(--delivery-border);
+}
+
+.delivery-table {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.delivery-table th {
+    padding: 14px 12px;
+    text-align: left;
+    background: var(--neo-lime, #d7f36a);
+    color: #171717;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    white-space: nowrap;
+}
+
+.delivery-table td {
+    padding: 13px 12px;
+    vertical-align: top;
+    border-bottom: 1px solid #d5d0c5;
+    overflow-wrap: anywhere;
+}
+
+.delivery-table tbody tr:last-child td { border-bottom: 0; }
+.delivery-table tbody tr:hover { background: rgba(128,128,128,.08); }
+
+.delivery-order-id {
+    font-weight: 900;
+    font-size: 14px;
+}
+
+.delivery-customer {
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.delivery-subtext {
+    color: var(--delivery-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.delivery-total {
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.delivery-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border: 1px solid currentColor;
+    border-radius: 5px;
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.delivery-badge.pending { color: #815300; background: #fff0bd; }
+.delivery-badge.processing { color: #174b91; background: #dceaff; }
+.delivery-badge.shipped { color: #6840a0; background: #eee2ff; }
+.delivery-badge.delivered { color: #17643b; background: #d8f6df; }
+.delivery-badge.cancelled { color: #a12626; background: #ffe0e0; }
+
+.delivery-status-form {
+    display: grid;
+    gap: 7px;
+    min-width: 145px;
+}
+
+.delivery-status-form button {
+    min-height: 36px;
+    padding: 8px 10px;
+    background: var(--neo-lime, #d7f36a);
+    color: #171717;
+    border: 2px solid #171717;
+    border-radius: 5px;
+    box-shadow: 2px 2px 0 #171717;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.delivery-status-form button:hover { filter: brightness(.96); }
+
+.delivery-status-form button:focus-visible,
+.delivery-status-form select:focus-visible,
+.delivery-toolbar input:focus-visible,
+.delivery-toolbar select:focus-visible,
+.delivery-back:focus-visible {
+    outline: 3px solid #3478f6;
+    outline-offset: 3px;
+}
+
+.delivery-empty {
+    padding: 35px 18px;
+    text-align: center;
+    background: var(--delivery-card);
+    border: 2px dashed var(--delivery-border);
+    border-radius: 8px;
+}
+
+.delivery-empty h2 { margin-top: 0; }
+.delivery-empty p { color: var(--delivery-muted); margin-bottom: 0; }
+
+.delivery-results {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+    color: var(--delivery-muted);
+    font-size: 13px;
+}
+
+.delivery-page button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.delivery-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.delivery-pagination button {
+    padding: 9px 14px;
+    border: 2px solid var(--delivery-border);
+    border-radius: 5px;
+    background: var(--delivery-card);
+    color: var(--delivery-text);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.delivery-pagination span {
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.delivery-no-results {
+    display: none;
+    padding: 24px;
+    text-align: center;
+    color: var(--delivery-muted);
+}
+
+/* FIX: Match the actual theme selector used by the app */
+html[data-theme="dark"] .delivery-page {
+    --delivery-card: #151e2e;
+    --delivery-text: #f1f5f9;
+    --delivery-border: #3a475d;
+    --delivery-muted: #c0cbd9;
+}
+
+html[data-theme="dark"] .delivery-stat {
+    background: #151e2e !important;
+    color: #f1f5f9 !important;
+    border-color: #3a475d !important;
+    box-shadow: 4px 4px 0 #070b13;
+}
+
+html[data-theme="dark"] .delivery-stat span {
+    color: #c0cbd9 !important;
+}
+
+html[data-theme="dark"] .delivery-stat strong {
+    color: #d7f36a !important;
+}
+
+html[data-theme="dark"] .delivery-heading p,
+html[data-theme="dark"] .delivery-results,
+html[data-theme="dark"] .delivery-subtext {
+    color: #c0cbd9 !important;
+}
+
+html[data-theme="dark"] .delivery-back {
+    background: #d7f36a !important;
+    color: #171717 !important;
+    border-color: #d7f36a !important;
+    box-shadow: 3px 3px 0 #070b13;
+}
+
+html[data-theme="dark"] .delivery-toolbar input,
+html[data-theme="dark"] .delivery-toolbar select,
+html[data-theme="dark"] .delivery-status-form select,
+html[data-theme="dark"] .delivery-pagination button {
+    background: #101a2a !important;
+    color: #f1f5f9 !important;
+    border-color: #52627a !important;
+}
+
+html[data-theme="dark"] .delivery-toolbar input::placeholder {
+    color: #aab7ca !important;
+}
+
+html[data-theme="dark"] .delivery-table-wrap {
+    background: #151e2e !important;
+    border-color: #3a475d !important;
+    box-shadow: 5px 5px 0 #070b13;
+}
+
+html[data-theme="dark"] .delivery-table td {
+    color: #e5eaf3 !important;
+    border-bottom-color: #3a475d !important;
+}
+
+html[data-theme="dark"] .delivery-table tbody tr:hover {
+    background: #253146 !important;
+}
+
+html[data-theme="dark"] .delivery-order-id,
+html[data-theme="dark"] .delivery-customer,
+html[data-theme="dark"] .delivery-total {
+    color: #f1f5f9 !important;
+}
+
+html[data-theme="dark"] .delivery-status-form button {
+    background: #d7f36a !important;
+    color: #171717 !important;
+    border-color: #d7f36a !important;
+}
+
+html[data-theme="dark"] .delivery-empty {
+    background: #151e2e !important;
+    color: #f1f5f9 !important;
+    border-color: #52627a !important;
+}
+
+html[data-theme="dark"] .delivery-empty p {
+    color: #c0cbd9 !important;
+}
+
+@media (max-width: 760px) {
+    .delivery-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .delivery-toolbar { grid-template-columns: 1fr; }
+    .delivery-heading { align-items: flex-start; }
+    .delivery-stat { padding: 14px; }
+    .delivery-stat strong { font-size: 25px; }
+}
+
+@media (max-width: 480px) {
+    .delivery-stats { gap: 10px; }
+    .delivery-stat strong { font-size: 22px; }
+    .delivery-heading h1 { font-size: 1.8rem; }
+}
+</style>
+
+<section class="delivery-page">
+    <div class="delivery-heading">
+        <div>
+            <h1>Delivery workspace<span style="color:#b7d84b">.</span></h1>
+            <p>Track paid orders and manage delivery progress.</p>
+        </div>
+
+        <a href="{{ url_for('staff_dashboard') }}" class="delivery-back">
             ← Back to Dashboard
         </a>
-    </p>
+    </div>
 
     {% if orders %}
-        <div class="card">
-            <h2>Paid Orders ({{ orders|length }})</h2>
+    <div class="delivery-stats">
+        <div class="delivery-stat">
+            <span>Total paid orders</span>
+            <strong>{{ orders|length }}</strong>
+        </div>
+        <div class="delivery-stat">
+            <span>Order placed</span>
+            <strong id="count-pending">0</strong>
+        </div>
+        <div class="delivery-stat">
+            <span>In progress</span>
+            <strong id="count-progress">0</strong>
+        </div>
+        <div class="delivery-stat">
+            <span>Delivered</span>
+            <strong id="count-delivered">0</strong>
+        </div>
+    </div>
 
-            {% for order in orders %}
-                <div class="card" style="margin: 16px 0; padding: 20px;">
-                    <h3>Order #{{ order['id'] }}</h3>
+    <div class="delivery-toolbar">
+        <input type="search" id="delivery-search"
+               placeholder="Search order, customer, phone, address..."
+               aria-label="Search orders">
 
-                    <p><strong>Customer:</strong>
-                        {{ order['name'] }}</p>
+        <select id="delivery-filter" aria-label="Filter by delivery status">
+            <option value="all">All delivery statuses</option>
+            <option value="Order Placed">Order Placed</option>
+            <option value="Processing">Processing</option>
+            <option value="Shipped">Shipped</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Cancelled">Cancelled</option>
+        </select>
+    </div>
 
-                    <p><strong>Phone:</strong>
-                        {{ order['phone'] or 'Not provided' }}</p>
+    <div class="delivery-results">
+        <span id="delivery-result-count">Showing {{ orders|length }} orders</span>
+        <span>Use search and filters to find an order quickly.</span>
+    </div>
 
-                    <p><strong>Address:</strong>
-                        {{ order['address'] or 'Not provided' }},
-                        {{ order['city'] or '' }}
-                        {{ order['pincode'] or '' }}
-                    </p>
-
-                    <p><strong>Total:</strong>
-                        {{ order['total'] }}</p>
-
-                    <p><strong>Payment status:</strong>
-                        {{ order['status']|title }}</p>
-
-                    <p><strong>Delivery status:</strong>
-                        {{ order['delivery_status'] or 'Order Placed' }}</p>
-
-                    <form method="POST"
-                          action="{{ url_for('staff_update_delivery_status',
-                                             order_id=order['id']) }}">
-
-                        <input type="hidden"
-                               name="csrf_token"
-                               value="{{ csrf_token() }}">
-
-                        <label for="status-{{ order['id'] }}">
-                            Update delivery status
-                        </label>
-
-                        <select id="status-{{ order['id'] }}"
-                                name="delivery_status"
-                                required>
-                            {% for status in [
-                                'Order Placed',
-                                'Processing',
-                                'Shipped',
-                                'Delivered',
-                                'Cancelled'
-                            ] %}
+    <div class="delivery-table-wrap">
+        <table class="delivery-table">
+            <thead>
+                <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Delivery address</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Delivery status</th>
+                    <th>Update status</th>
+                </tr>
+            </thead>
+            <tbody id="delivery-orders-body">
+                {% for order in orders %}
+                {% set current_status = order['delivery_status'] or 'Order Placed' %}
+                <tr class="delivery-order-row"
+                    data-status="{{ current_status }}"
+                    data-search="{{ (order['id'] ~ ' ' ~ (order['name'] or '') ~ ' ' ~ (order['phone'] or '') ~ ' ' ~ (order['address'] or '') ~ ' ' ~ (order['city'] or '') ~ ' ' ~ (order['pincode'] or ''))|lower }}">
+                    <td>
+                        <div class="delivery-order-id">#{{ order['id'] }}</div>
+                    </td>
+                    <td>
+                        <div class="delivery-customer">{{ order['name'] or 'Customer' }}</div>
+                        <div class="delivery-subtext">{{ order['phone'] or 'No phone provided' }}</div>
+                    </td>
+                    <td>
+                        <div>{{ order['address'] or 'Not provided' }}</div>
+                        <div class="delivery-subtext">{{ order['city'] or '' }} {{ order['pincode'] or '' }}</div>
+                    </td>
+                    <td class="delivery-total">{{ order['total'] }}</td>
+                    <td>
+                        <span class="delivery-badge delivered">{{ order['status']|title }}</span>
+                    </td>
+                    <td>
+                        <span class="delivery-badge
+                            {% if current_status == 'Delivered' %}delivered
+                            {% elif current_status == 'Cancelled' %}cancelled
+                            {% elif current_status == 'Shipped' %}shipped
+                            {% elif current_status == 'Processing' %}processing
+                            {% else %}pending{% endif %}">
+                            {{ current_status }}
+                        </span>
+                    </td>
+                    <td>
+                        <form class="delivery-status-form" method="POST"
+                              action="{{ url_for('staff_update_delivery_status', order_id=order['id']) }}"
+                              onsubmit="return confirm('Save the delivery status for order #{{ order['id'] }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="delivery_status"
+                                    aria-label="Delivery status for order {{ order['id'] }}" required>
+                                {% for status in ['Order Placed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'] %}
                                 <option value="{{ status }}"
-                                    {% if (order['delivery_status'] or 'Order Placed') == status %}
-                                        selected
-                                    {% endif %}>
-                                    {{ status }}
-                                </option>
-                            {% endfor %}
-                        </select>
+                                    {% if current_status == status %}selected{% endif %}>{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit">Save status</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-                        <button type="submit" class="button">
-                            Save Status
-                        </button>
-                    </form>
-                </div>
-            {% endfor %}
+        <div class="delivery-no-results" id="delivery-no-results">
+            No matching orders. Try a different search or filter.
         </div>
+    </div>
+
+    <div class="delivery-pagination">
+        <button type="button" id="delivery-prev">← Previous</button>
+        <span id="delivery-page-label">Page 1</span>
+        <button type="button" id="delivery-next">Next →</button>
+    </div>
+
     {% else %}
-        <div class="card">
-            <h2>No paid orders yet</h2>
-            <p>Paid orders will appear here when customers place them.</p>
-        </div>
+    <div class="delivery-empty">
+        <h2>No paid orders yet</h2>
+        <p>Paid orders will appear here when customers place them.</p>
+    </div>
     {% endif %}
 </section>
+
+<script>
+(function () {
+    const rows = Array.from(document.querySelectorAll(".delivery-order-row"));
+    if (!rows.length) return;
+
+    const search = document.getElementById("delivery-search");
+    const filter = document.getElementById("delivery-filter");
+    const resultCount = document.getElementById("delivery-result-count");
+    const noResults = document.getElementById("delivery-no-results");
+    const prev = document.getElementById("delivery-prev");
+    const next = document.getElementById("delivery-next");
+    const pageLabel = document.getElementById("delivery-page-label");
+
+    const pageSize = 10;
+    let currentPage = 1;
+
+    function updateStats() {
+        let pending = 0, progress = 0, delivered = 0;
+
+        rows.forEach(function (row) {
+            const status = row.dataset.status;
+            if (status === "Order Placed") pending++;
+            if (status === "Processing" || status === "Shipped") progress++;
+            if (status === "Delivered") delivered++;
+        });
+
+        document.getElementById("count-pending").textContent = pending;
+        document.getElementById("count-progress").textContent = progress;
+        document.getElementById("count-delivered").textContent = delivered;
+    }
+
+    function render() {
+        const query = search.value.trim().toLowerCase();
+        const selectedStatus = filter.value;
+
+        const matching = rows.filter(function (row) {
+            return row.dataset.search.includes(query) &&
+                (selectedStatus === "all" || row.dataset.status === selectedStatus);
+        });
+
+        const pageCount = Math.max(1, Math.ceil(matching.length / pageSize));
+        if (currentPage > pageCount) currentPage = pageCount;
+
+        const start = (currentPage - 1) * pageSize;
+        const visibleRows = new Set(matching.slice(start, start + pageSize));
+
+        rows.forEach(function (row) {
+            row.style.display = visibleRows.has(row) ? "" : "none";
+        });
+
+        resultCount.textContent = "Showing " + matching.length + " of " + rows.length + " orders";
+        noResults.style.display = matching.length ? "none" : "block";
+        document.querySelector(".delivery-table").style.display = matching.length ? "table" : "none";
+        pageLabel.textContent = "Page " + currentPage + " of " + pageCount;
+
+        prev.disabled = currentPage <= 1;
+        next.disabled = currentPage >= pageCount;
+    }
+
+    search.addEventListener("input", function () {
+        currentPage = 1;
+        render();
+    });
+
+    filter.addEventListener("change", function () {
+        currentPage = 1;
+        render();
+    });
+
+    prev.addEventListener("click", function () {
+        if (currentPage > 1) {
+            currentPage--;
+            render();
+        }
+    });
+
+    next.addEventListener("click", function () {
+        currentPage++;
+        render();
+    });
+
+    updateStats();
+    render();
+})();
+</script>
+
 {% endblock %}

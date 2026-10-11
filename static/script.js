@@ -296,3 +296,23 @@ document.addEventListener("DOMContentLoaded", () => {
   updateCart();
 });
 
+
+// Automatically dismiss flash notifications
+document.addEventListener("DOMContentLoaded", () => {
+    const messages = document.querySelectorAll(
+        ".flash, .flash-message, .alert, .toast"
+    );
+
+    messages.forEach((message) => {
+        // Avoid hiding persistent or explicitly sticky messages
+        if (message.dataset.autoDismiss === "false") return;
+
+        setTimeout(() => {
+            message.classList.add("notification-hiding");
+
+            setTimeout(() => {
+                message.remove();
+            }, 300);
+        }, 5000);
+    });
+});

@@ -1,0 +1,89 @@
+
+{% extends 'base.html' %}
+{% block title %}Staff Management | Skyline Club{% endblock %}
+
+{% block content %}
+<style>
+.staff-page { max-width: 1100px; margin: auto; padding: 24px 0; }
+.staff-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.staff-form label { display: block; margin-bottom: 6px; }
+.staff-form input, .staff-form select { width: 100%; min-width: 0; }
+.staff-table-wrap { overflow-x: auto; }
+.staff-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.staff-table th, .staff-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--line, #ddd); }
+.staff-table th { background: var(--lime, #d7f36a); color: #171717; }
+.staff-status { font-weight: bold; }
+.staff-off { color: #d23b4b; }
+.staff-on { color: #16804a; }
+.staff-danger { background: #b42332 !important; color: white !important; }
+@media(max-width: 700px) { .staff-form { grid-template-columns: 1fr; } }
+</style>
+
+<div class="staff-page">
+    <h1>Staff Management</h1>
+    <p>Create staff accounts or deactivate accounts that should no longer have access.</p>
+
+    <form method="post" class="card staff-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div>
+            <label for="staff-email">Staff email</label>
+            <input id="staff-email" type="email" name="email" required>
+        </div>
+
+        <div>
+            <label for="staff-password">Temporary password</label>
+            <input id="staff-password" type="password" name="password"
+                   minlength="8" required autocomplete="new-password">
+        </div>
+
+        <div>
+            <label for="staff-role">Role</label>
+            <select id="staff-role" name="role">
+                <option value="committee">Committee / Staff</option>
+                <option value="admin">Administrator</option>
+            </select>
+        </div>
+
+        <button type="submit">Add Staff</button>
+    </form>
+
+    <div class="card staff-table-wrap" style="margin-top:22px">
+        <h2>Existing staff ({{ staff|length }})</h2>
+        <table class="staff-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Access</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for person in staff %}
+                <tr>
+                    <td>{{ person.email }}</td>
+                    <td>{{ person.role|title }}</td>
+                    <td class="staff-status {{ 'staff-on' if person.active else 'staff-off' }}">
+                        {{ 'Active' if person.active else 'Deactivated' }}
+                    </td>
+                    <td>
+                        <form method="post"
+                              action="{{ url_for('admin_staff_toggle', staff_id=person.id) }}"
+                              onsubmit="return confirm('Change access for {{ person.email }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit"
+                                    class="{{ 'staff-danger' if person.active else '' }}">
+                                {{ 'Deactivate' if person.active else 'Reactivate' }}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4">No staff accounts found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
